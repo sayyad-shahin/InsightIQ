@@ -2,11 +2,10 @@ import enum
 import uuid
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Enum, ForeignKey, String, Text
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
+from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base_class import Base, TimestampMixin, UUIDMixin
+from app.db.base_class import GUID, JSONVariant, Base, TimestampMixin, UUIDMixin, pg_enum
 
 if TYPE_CHECKING:
     from app.models.dataset import Dataset
@@ -29,10 +28,10 @@ class Chat(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "chats"
 
     user_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+        GUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     dataset_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("datasets.id", ondelete="SET NULL"), nullable=True, index=True
+        GUID(as_uuid=True), ForeignKey("datasets.id", ondelete="SET NULL"), nullable=True, index=True
     )
     title: Mapped[str] = mapped_column(String(255), default="New conversation", nullable=False)
 
@@ -50,15 +49,15 @@ class ChatMessage(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "chat_messages"
 
     chat_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("chats.id", ondelete="CASCADE"), nullable=False, index=True
+        GUID(as_uuid=True), ForeignKey("chats.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    role: Mapped[MessageRole] = mapped_column(Enum(MessageRole, name="message_role"), nullable=False)
+    role: Mapped[MessageRole] = mapped_column(pg_enum(MessageRole, "message_role"), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     generated_code: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     result_type: Mapped[ResultType] = mapped_column(
-        Enum(ResultType, name="result_type"), default=ResultType.NONE, nullable=False
+        pg_enum(ResultType, "result_type"), default=ResultType.NONE, nullable=False
     )
-    result_payload: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    result_payload: Mapped[Optional[dict]] = mapped_column(JSONVariant, nullable=True)
 
     chat: Mapped["Chat"] = relationship(back_populates="messages")
 

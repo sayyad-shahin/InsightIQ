@@ -1,10 +1,10 @@
 import enum
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Boolean, Enum, String
+from sqlalchemy import Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base_class import Base, TimestampMixin, UUIDMixin
+from app.db.base_class import Base, TimestampMixin, UUIDMixin, pg_enum
 
 if TYPE_CHECKING:
     from app.models.audit_log import AuditLog
@@ -32,10 +32,10 @@ class User(UUIDMixin, TimestampMixin, Base):
     hashed_password: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[UserRole] = mapped_column(
-        Enum(UserRole, name="user_role"), default=UserRole.ANALYST, nullable=False
+        pg_enum(UserRole, "user_role"), default=UserRole.ANALYST, nullable=False
     )
     auth_provider: Mapped[AuthProvider] = mapped_column(
-        Enum(AuthProvider, name="auth_provider"), default=AuthProvider.LOCAL, nullable=False
+        pg_enum(AuthProvider, "auth_provider"), default=AuthProvider.LOCAL, nullable=False
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_email_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
