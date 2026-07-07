@@ -1,10 +1,13 @@
 import uuid
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.v1.deps import get_current_user
+from app.core.config import settings
+from app.core.limiter import limiter
 from app.db.session import get_db
 from app.models.dataset import Dataset, DatasetStatus
 from app.models.user import User
@@ -12,13 +15,18 @@ from app.schemas.dataset import DatasetDetail, DatasetPreviewResponse, DatasetRe
 from app.services.audit_service import record_action
 from app.services.dataset_service import UnsupportedDatasetError, build_preview, load_dataframe
 from app.services.storage_service import delete_file, save_upload
-from app.utils.file_validation import detect_source_type, validate_upload_size
+from app.utils.file_validation import (
+    detect_source_type,
+    validate_content_type,
+    validate_declared_size,
+)
 from app.workers.tasks.dataset_tasks import process_dataset
 
 router = APIRouter(prefix="/datasets", tags=["datasets"])
 
 
 @router.post("/upload", response_model=DatasetRead, status_code=status.HTTP_201_CREATED)
+@limiter.limit(settings.RATE_LIMIT_UPLOAD)
 def upload_dataset(
     request: Request,
     file: UploadFile = File(...),
@@ -29,9 +37,10 @@ def upload_dataset(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No file provided")
 
     source_type = detect_source_type(file.filename)
-    validate_upload_size(file)
+    validate_content_type(file.content_type)
+    validate_declared_size(file)
 
-    storage_path = save_upload(current_user.id, file)
+    storage_path = save_upload(current_user.id, file, source_type)
 
     dataset = Dataset(
         owner_id=current_user.id,
@@ -44,7 +53,14 @@ def upload_dataset(
     db.commit()
     db.refresh(dataset)
 
-    process_dataset.delay(str(dataset.id))
+    # Queue async profiling; if the broker is unavailable, don't fail the upload —
+    # the row is persisted and the task can be re-dispatched.
+    try:
+        process_dataset.delay(str(dataset.id))
+    except Exception as exc:  # noqa: BLE001 - broker/connection errors shouldn't 500 the upload
+        from app.core.logging import logger
+
+        logger.error(f"Failed to enqueue processing for dataset {dataset.id}: {exc}")
 
     record_action(
         db,
@@ -100,11 +116,13 @@ def preview_dataset(
         )
 
     try:
-        from pathlib import Path
-
         df = load_dataframe(Path(dataset.storage_path), dataset.source_type)
     except UnsupportedDatasetError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE, detail="Underlying file is no longer available"
+        ) from exc
 
     return build_preview(df)
 

@@ -69,6 +69,10 @@ class Settings(BaseSettings):
     RATE_LIMIT_AUTH: str = "10/minute"
     RATE_LIMIT_UPLOAD: str = "10/minute"
     RATE_LIMIT_CHAT: str = "20/minute"
+    # Backing store for rate-limit counters. Leave empty for in-process memory
+    # (single worker / tests); set to the Redis URL so limits are shared across
+    # gunicorn workers in production.
+    RATE_LIMIT_STORAGE_URI: str = ""
 
     @property
     def is_production(self) -> bool:

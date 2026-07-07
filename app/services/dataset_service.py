@@ -41,15 +41,21 @@ def _load_dataframe_from_sql_script(path: Path) -> pd.DataFrame:
     """
     script = path.read_text(encoding="utf-8", errors="ignore")
 
+    # Block statements that could touch the host filesystem. The script is run in
+    # a disposable in-memory SQLite DB, but ATTACH DATABASE could otherwise create
+    # or write files at an arbitrary path.
+    if re.search(r"\battach\s+database\b", script, re.IGNORECASE):
+        raise UnsupportedDatasetError("ATTACH DATABASE statements are not permitted in uploaded SQL")
+
     match = _CREATE_TABLE_RE.search(script)
     if not match:
         raise UnsupportedDatasetError("No CREATE TABLE statement found in the uploaded SQL file")
-    table_name = match.group(1)
+    table_name = match.group(1)  # regex captures \w+ only, so it is safe to interpolate
 
     connection = sqlite3.connect(":memory:")
     try:
         connection.executescript(script)
-        return pd.read_sql_query(f"SELECT * FROM {table_name}", connection)
+        return pd.read_sql_query(f'SELECT * FROM "{table_name}"', connection)
     except sqlite3.Error as exc:
         raise UnsupportedDatasetError(f"Failed to execute SQL script: {exc}") from exc
     finally:
