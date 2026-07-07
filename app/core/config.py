@@ -1,7 +1,10 @@
 from functools import lru_cache
 from typing import List
 
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+INSECURE_SECRET_PLACEHOLDER = "changeme-generate-a-real-64-byte-secret"
 
 
 class Settings(BaseSettings):
@@ -63,8 +66,47 @@ class Settings(BaseSettings):
 
     # --- Rate limiting ---
     RATE_LIMIT_DEFAULT: str = "100/minute"
+    RATE_LIMIT_AUTH: str = "10/minute"
     RATE_LIMIT_UPLOAD: str = "10/minute"
     RATE_LIMIT_CHAT: str = "20/minute"
+
+    @property
+    def is_production(self) -> bool:
+        return self.APP_ENV.lower() == "production"
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def _parse_cors_origins(cls, value: object) -> object:
+        """Accept CORS origins as a JSON array or a comma-separated string."""
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return []
+            if raw.startswith("["):
+                return raw  # let pydantic parse the JSON list
+            return [origin.strip() for origin in raw.split(",") if origin.strip()]
+        return value
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def _normalize_database_url(cls, value: object) -> object:
+        """Normalize legacy 'postgres://' scheme to a SQLAlchemy-compatible driver URL."""
+        if isinstance(value, str) and value.startswith("postgres://"):
+            return value.replace("postgres://", "postgresql+psycopg2://", 1)
+        return value
+
+    @model_validator(mode="after")
+    def _guard_production_secrets(self) -> "Settings":
+        """Fail fast if a production process boots with an insecure or missing secret."""
+        if self.is_production:
+            if not self.SECRET_KEY or self.SECRET_KEY == INSECURE_SECRET_PLACEHOLDER:
+                raise ValueError(
+                    "SECRET_KEY must be set to a strong, unique value in production "
+                    '(generate with: python -c "import secrets; print(secrets.token_urlsafe(64))").'
+                )
+            if len(self.SECRET_KEY) < 32:
+                raise ValueError("SECRET_KEY must be at least 32 characters in production.")
+        return self
 
 
 @lru_cache
