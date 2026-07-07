@@ -13,7 +13,12 @@ from app.models.dataset import Dataset, DatasetStatus
 from app.models.user import User
 from app.schemas.dataset import DatasetDetail, DatasetPreviewResponse, DatasetRead
 from app.services.audit_service import record_action
-from app.services.dataset_service import UnsupportedDatasetError, build_preview, load_dataframe
+from app.services.dataset_service import (
+    UnsupportedDatasetError,
+    build_preview,
+    get_owned_dataset,
+    load_dataframe,
+)
 from app.services.storage_service import delete_file, save_upload
 from app.utils.file_validation import (
     detect_source_type,
@@ -86,8 +91,8 @@ def list_datasets(
 
 
 def _get_owned_dataset(db: Session, dataset_id: uuid.UUID, current_user: User) -> Dataset:
-    dataset = db.get(Dataset, dataset_id)
-    if not dataset or dataset.owner_id != current_user.id:
+    dataset = get_owned_dataset(db, dataset_id, current_user.id)
+    if dataset is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found")
     return dataset
 

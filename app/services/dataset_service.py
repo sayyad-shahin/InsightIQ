@@ -1,12 +1,14 @@
 import re
 import sqlite3
+import uuid
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 from pypdf import PdfReader
+from sqlalchemy.orm import Session
 
-from app.models.dataset import SourceType
+from app.models.dataset import Dataset, SourceType
 
 MAX_PREVIEW_ROWS = 50
 _CREATE_TABLE_RE = re.compile(r"CREATE\s+TABLE\s+[`\"\[]?(\w+)[`\"\]]?", re.IGNORECASE)
@@ -14,6 +16,14 @@ _CREATE_TABLE_RE = re.compile(r"CREATE\s+TABLE\s+[`\"\[]?(\w+)[`\"\]]?", re.IGNO
 
 class UnsupportedDatasetError(Exception):
     """Raised when a file cannot be parsed into tabular data."""
+
+
+def get_owned_dataset(db: Session, dataset_id: uuid.UUID, user_id: uuid.UUID) -> Dataset | None:
+    """Return the dataset only if it exists and belongs to the given user."""
+    dataset = db.get(Dataset, dataset_id)
+    if dataset is None or dataset.owner_id != user_id:
+        return None
+    return dataset
 
 
 def load_dataframe(path: Path, source_type: SourceType) -> pd.DataFrame:

@@ -8,8 +8,7 @@ celery_app = Celery(
     backend=settings.CELERY_RESULT_BACKEND,
     include=[
         "app.workers.tasks.dataset_tasks",
-        # forecast_tasks and report_tasks are registered here once the
-        # forecasting and reporting modules are built (see project roadmap).
+        "app.workers.tasks.forecast_tasks",
     ],
 )
 
