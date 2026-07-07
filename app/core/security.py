@@ -2,22 +2,32 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 from uuid import UUID
 
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from app.core.config import settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+TokenType = Literal["access", "refresh", "email_verification", "password_reset", "oauth_state"]
 
-TokenType = Literal["access", "refresh", "email_verification", "password_reset"]
+# bcrypt operates on at most 72 bytes; longer inputs raise in bcrypt >= 4.1, so we
+# truncate deterministically. Using bcrypt directly avoids the unmaintained passlib
+# shim, which is incompatible with modern bcrypt releases.
+_BCRYPT_MAX_BYTES = 72
 
 
 def hash_password(plain_password: str) -> str:
-    return pwd_context.hash(plain_password)
+    password_bytes = plain_password.encode("utf-8")[:_BCRYPT_MAX_BYTES]
+    return bcrypt.hashpw(password_bytes, bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    if not hashed_password:
+        return False
+    try:
+        password_bytes = plain_password.encode("utf-8")[:_BCRYPT_MAX_BYTES]
+        return bcrypt.checkpw(password_bytes, hashed_password.encode("utf-8"))
+    except (ValueError, TypeError):
+        return False
 
 
 def _create_token(subject: str, token_type: TokenType, expires_delta: timedelta) -> str:
@@ -49,6 +59,11 @@ def create_email_verification_token(user_id: UUID) -> str:
 
 def create_password_reset_token(user_id: UUID) -> str:
     return _create_token(str(user_id), "password_reset", timedelta(hours=1))
+
+
+def create_oauth_state_token() -> str:
+    """Short-lived signed token used as the OAuth2 `state` parameter (CSRF defense)."""
+    return _create_token("oauth", "oauth_state", timedelta(minutes=10))
 
 
 class InvalidTokenError(Exception):
