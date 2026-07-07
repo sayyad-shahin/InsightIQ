@@ -19,15 +19,17 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    user_role = postgresql.ENUM("admin", "analyst", "viewer", name="user_role")
-    auth_provider = postgresql.ENUM("local", "google", name="auth_provider")
-    source_type = postgresql.ENUM("csv", "excel", "pdf", "sql", name="source_type")
-    dataset_status = postgresql.ENUM("uploaded", "processing", "cleaned", "error", name="dataset_status")
-    message_role = postgresql.ENUM("user", "assistant", name="message_role")
-    result_type = postgresql.ENUM("text", "table", "chart", "none", name="result_type")
-    forecast_model_type = postgresql.ENUM("prophet", "sklearn_regression", name="forecast_model_type")
-    forecast_status = postgresql.ENUM("queued", "running", "done", "failed", name="forecast_status")
-    theme_preference = postgresql.ENUM("light", "dark", "system", name="theme_preference")
+    # create_type=False: the ENUM types are created explicitly below, so table
+    # creation must NOT re-emit CREATE TYPE (that would raise "type already exists").
+    user_role = postgresql.ENUM("admin", "analyst", "viewer", name="user_role", create_type=False)
+    auth_provider = postgresql.ENUM("local", "google", name="auth_provider", create_type=False)
+    source_type = postgresql.ENUM("csv", "excel", "pdf", "sql", name="source_type", create_type=False)
+    dataset_status = postgresql.ENUM("uploaded", "processing", "cleaned", "error", name="dataset_status", create_type=False)
+    message_role = postgresql.ENUM("user", "assistant", name="message_role", create_type=False)
+    result_type = postgresql.ENUM("text", "table", "chart", "none", name="result_type", create_type=False)
+    forecast_model_type = postgresql.ENUM("prophet", "sklearn_regression", name="forecast_model_type", create_type=False)
+    forecast_status = postgresql.ENUM("queued", "running", "done", "failed", name="forecast_status", create_type=False)
+    theme_preference = postgresql.ENUM("light", "dark", "system", name="theme_preference", create_type=False)
 
     bind = op.get_bind()
     for enum in (
