@@ -1,0 +1,10 @@
+# Optional AI/ML extras. The application runs fully without these:
+#   * Forecasting falls back to scikit-learn linear regression (in core reqs).
+#   * The chat assistant degrades gracefully when the Gemini SDK / key are absent.
+# Install with:  pip install -r requirements-optional.txt
+#
+# These are kept separate because they are heavy and their transitive pins
+# (grpc, cmdstan, torch, etc.) frequently conflict with the core stack.
+
+prophet==1.1.6              # enables the Prophet forecasting model
+google-generativeai==0.8.3  # enables Gemini-backed chat replies
