@@ -1,39 +1,46 @@
 """
 Test fixtures.
 
-These tests run against a real PostgreSQL instance, not SQLite, because the
-schema uses Postgres-native JSONB and UUID column types that SQLite cannot
-represent. Point TEST_DATABASE_URL at a disposable database before running
-pytest, e.g.:
+By default the suite runs against an in-memory SQLite database so it needs no
+external services. The models use portable column types (see app/db/base_class),
+so the same schema builds on SQLite and PostgreSQL. To run the suite against a
+real PostgreSQL instance (recommended in CI before release), export:
 
     export TEST_DATABASE_URL=postgresql+psycopg2://insightiq:insightiq@localhost:5432/insightiq_test
-    pytest
-
-The docker-compose.test.yml service (see infra/) spins up exactly this.
 """
 
 import os
 
-os.environ.setdefault("SECRET_KEY", "test-secret-key-not-for-production")
-os.environ.setdefault(
-    "DATABASE_URL",
-    os.environ.get(
-        "TEST_DATABASE_URL",
-        "postgresql+psycopg2://insightiq:insightiq@localhost:5432/insightiq_test",
-    ),
-)
+os.environ.setdefault("APP_ENV", "test")
+os.environ.setdefault("SECRET_KEY", "test-secret-key-not-for-production-0123456789abcdef")
+os.environ.setdefault("DATABASE_URL", os.environ.get("TEST_DATABASE_URL", "sqlite+pysqlite:///:memory:"))
+# Keep rate limiting effectively disabled during tests so bulk requests never 429.
+os.environ.setdefault("RATE_LIMIT_DEFAULT", "100000/minute")
+os.environ.setdefault("RATE_LIMIT_AUTH", "100000/minute")
+os.environ.setdefault("CELERY_TASK_ALWAYS_EAGER", "1")
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from app.core.config import settings
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 
-engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True)
+if settings.DATABASE_URL.startswith("sqlite"):
+    # StaticPool keeps a single shared connection so every session sees the same
+    # in-memory database across the TestClient's request threads.
+    engine = create_engine(
+        settings.DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+else:
+    engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True)
+
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
