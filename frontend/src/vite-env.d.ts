@@ -1,7 +1,10 @@
 /// <reference types="vite/client" />
 
-declare module "plotly.js-dist-min" {
-  const Plotly: {
+// Custom Plotly core bundle (see src/lib/plotly.ts). The submodules ship no
+// bundled types, so we declare the minimal surface the app uses.
+declare module "plotly.js/lib/core" {
+  interface PlotlyStatic {
+    register: (modules: unknown[]) => void;
     react: (
       root: HTMLElement,
       data: unknown[],
@@ -11,6 +14,23 @@ declare module "plotly.js-dist-min" {
     purge: (root: HTMLElement) => void;
     Icons: Record<string, unknown>;
     downloadImage: (root: HTMLElement, opts: Record<string, unknown>) => Promise<string>;
-  };
+  }
+  const Plotly: PlotlyStatic;
   export default Plotly;
+}
+declare module "plotly.js/lib/bar" {
+  const m: unknown;
+  export default m;
+}
+declare module "plotly.js/lib/scatter" {
+  const m: unknown;
+  export default m;
+}
+declare module "plotly.js/lib/pie" {
+  const m: unknown;
+  export default m;
+}
+declare module "plotly.js/lib/heatmap" {
+  const m: unknown;
+  export default m;
 }

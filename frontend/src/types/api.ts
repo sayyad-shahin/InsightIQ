@@ -179,6 +179,19 @@ export interface AuditLog {
   created_at: string;
 }
 
+export interface AdminStats {
+  totals: { users: number; datasets: number; forecasts: number; reports: number; chats: number };
+  users: { active: number; verified: number; new_this_week: number };
+  datasets: { processing: number; errored: number };
+  services: {
+    database: boolean;
+    redis_configured: boolean;
+    celery_eager: boolean;
+    ai_configured: boolean;
+    environment: string;
+  };
+}
+
 export interface ColumnStats {
   count: number;
   mean: number;

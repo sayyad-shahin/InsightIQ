@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import Plotly from "plotly.js-dist-min";
+import Plotly from "@/lib/plotly";
 import { useTheme } from "@/providers/theme-provider";
 import { cn } from "@/lib/utils";
 

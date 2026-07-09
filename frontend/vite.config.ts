@@ -19,11 +19,18 @@ export default defineConfig({
   },
   build: {
     target: "es2020",
+    // Plotly is inherently large but is route-split and lazy-loaded (charts only),
+    // so it never blocks the initial load of landing/auth/dashboard shells.
+    chunkSizeWarningLimit: 1500,
     rollupOptions: {
       output: {
-        manualChunks: {
-          plotly: ["plotly.js-dist-min"],
-          vendor: ["react", "react-dom", "react-router-dom"],
+        manualChunks(id) {
+          if (id.includes("plotly.js")) return "plotly";
+          if (id.includes("react-markdown") || id.includes("rehype") || id.includes("remark") || id.includes("hast") || id.includes("mdast") || id.includes("micromark")) return "markdown";
+          if (id.includes("@tanstack")) return "query";
+          if (id.includes("framer-motion")) return "motion";
+          if (id.includes("node_modules/react") || id.includes("react-router") || id.includes("react-dom")) return "vendor";
+          return undefined;
         },
       },
     },

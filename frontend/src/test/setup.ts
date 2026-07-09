@@ -2,10 +2,11 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
 
-// Plotly can't initialize under jsdom (needs a real canvas/WebGL). Mock it
-// globally so components that import charts still render in tests.
-vi.mock("plotly.js-dist-min", () => ({
+// Plotly can't initialize under jsdom (needs a real canvas/WebGL). Mock our
+// custom bundle globally so components that import charts still render in tests.
+vi.mock("@/lib/plotly", () => ({
   default: {
+    register: vi.fn(),
     react: vi.fn().mockResolvedValue(undefined),
     purge: vi.fn(),
     Icons: {},

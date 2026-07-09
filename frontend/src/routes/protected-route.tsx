@@ -30,3 +30,10 @@ export function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
   if (isAuthenticated) return <Navigate to="/app" replace />;
   return <>{children}</>;
 }
+
+export function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return <FullScreenLoader />;
+  if (user?.role !== "admin") return <Navigate to="/app" replace />;
+  return <>{children}</>;
+}

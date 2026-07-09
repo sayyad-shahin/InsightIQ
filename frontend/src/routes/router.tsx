@@ -1,10 +1,9 @@
 import { lazy, Suspense } from "react";
 import { createBrowserRouter } from "react-router-dom";
-import { PlaceholderPage } from "@/components/shared/placeholder-page";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { AppLayout } from "@/layouts/app-layout";
 import { AuthLayout } from "@/layouts/auth-layout";
-import { ProtectedRoute, PublicOnlyRoute } from "@/routes/protected-route";
+import { AdminRoute, ProtectedRoute, PublicOnlyRoute } from "@/routes/protected-route";
 
 const LandingPage = lazy(() => import("@/features/landing/landing-page"));
 const LoginPage = lazy(() => import("@/features/auth/login-page"));
@@ -14,6 +13,10 @@ const DatasetsPage = lazy(() => import("@/features/datasets/datasets-page"));
 const ChatPage = lazy(() => import("@/features/chat/chat-page"));
 const AnalyticsPage = lazy(() => import("@/features/analytics/analytics-page"));
 const ForecastsPage = lazy(() => import("@/features/forecasts/forecasts-page"));
+const ReportsPage = lazy(() => import("@/features/reports/reports-page"));
+const SettingsPage = lazy(() => import("@/features/settings/settings-page"));
+const ProfilePage = lazy(() => import("@/features/profile/profile-page"));
+const AdminPage = lazy(() => import("@/features/admin/admin-page"));
 const NotFoundPage = lazy(() => import("@/features/misc/not-found-page"));
 
 function Lazy({ children }: { children: React.ReactNode }) {
@@ -102,10 +105,40 @@ export const router = createBrowserRouter([
           </Lazy>
         ),
       },
-      { path: "reports", element: <PlaceholderPage title="Reports" description="Generate shareable summaries." /> },
-      { path: "admin", element: <PlaceholderPage title="Admin" description="Manage users and review the audit trail." /> },
-      { path: "settings", element: <PlaceholderPage title="Settings" description="Manage your workspace preferences." /> },
-      { path: "profile", element: <PlaceholderPage title="Profile" description="Your account details." /> },
+      {
+        path: "reports",
+        element: (
+          <Lazy>
+            <ReportsPage />
+          </Lazy>
+        ),
+      },
+      {
+        path: "settings",
+        element: (
+          <Lazy>
+            <SettingsPage />
+          </Lazy>
+        ),
+      },
+      {
+        path: "profile",
+        element: (
+          <Lazy>
+            <ProfilePage />
+          </Lazy>
+        ),
+      },
+      {
+        path: "admin",
+        element: (
+          <AdminRoute>
+            <Lazy>
+              <AdminPage />
+            </Lazy>
+          </AdminRoute>
+        ),
+      },
     ],
   },
   {

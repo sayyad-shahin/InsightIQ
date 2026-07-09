@@ -29,7 +29,7 @@
     "date-fns": "^4.1.0",
     "framer-motion": "^12.4.2",
     "lucide-react": "^0.475.0",
-    "plotly.js-dist-min": "^2.35.2",
+    "plotly.js": "^2.35.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^9.0.3",

@@ -24,7 +24,7 @@ import { KpiCard } from "@/features/dashboard/components/kpi-card";
 import { api } from "@/lib/api";
 import { useAuth } from "@/providers/auth-provider";
 import { formatCompact, formatNumber } from "@/lib/utils";
-import type { Dataset, Forecast, Report } from "@/types/api";
+import type { Chat, Dataset, Forecast, Report } from "@/types/api";
 
 function greeting() {
   const h = new Date().getHours();
@@ -40,14 +40,16 @@ export default function DashboardPage() {
   const datasetsQ = useQuery({ queryKey: ["datasets"], queryFn: api.datasets.list });
   const forecastsQ = useQuery({ queryKey: ["forecasts"], queryFn: () => api.forecasts.list() });
   const reportsQ = useQuery({ queryKey: ["reports"], queryFn: api.reports.list });
+  const chatsQ = useQuery({ queryKey: ["chats"], queryFn: api.chats.list });
 
   const datasets = datasetsQ.data ?? [];
   const forecasts = forecastsQ.data ?? [];
   const reports = reportsQ.data ?? [];
-  const loading = datasetsQ.isLoading || forecastsQ.isLoading || reportsQ.isLoading;
+  const chats = chatsQ.data ?? [];
+  const loading =
+    datasetsQ.isLoading || forecastsQ.isLoading || reportsQ.isLoading || chatsQ.isLoading;
 
-  const totalRows = datasets.reduce((sum, d) => sum + (d.row_count ?? 0), 0);
-  const activity = buildActivity(datasets, forecasts, reports);
+  const activity = buildActivity(datasets, forecasts, reports, chats);
 
   return (
     <div className="space-y-8">
@@ -86,10 +88,10 @@ export default function DashboardPage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiCard index={0} label="Datasets" value={formatNumber(datasets.length)} icon={Database} delta={12} spark={[30, 45, 40, 60, 55, 80, 100]} />
-          <KpiCard index={1} label="Rows analyzed" value={formatCompact(totalRows)} icon={Rows3} delta={8} spark={[20, 35, 55, 45, 70, 65, 90]} />
-          <KpiCard index={2} label="Forecasts" value={formatNumber(forecasts.length)} icon={TrendingUp} delta={forecasts.length ? 24 : 0} spark={[10, 20, 30, 50, 45, 75, 85]} />
-          <KpiCard index={3} label="Reports" value={formatNumber(reports.length)} icon={FileText} delta={reports.length ? 5 : 0} spark={[40, 30, 50, 55, 60, 70, 80]} />
+          <KpiCard index={0} label="Datasets" value={formatNumber(datasets.length)} icon={Database} spark={dailySpark(datasets)} />
+          <KpiCard index={1} label="Conversations" value={formatNumber(chats.length)} icon={Bot} spark={dailySpark(chats)} />
+          <KpiCard index={2} label="Forecasts" value={formatNumber(forecasts.length)} icon={TrendingUp} spark={dailySpark(forecasts)} />
+          <KpiCard index={3} label="Reports" value={formatNumber(reports.length)} icon={FileText} spark={dailySpark(reports)} />
         </div>
       )}
 
@@ -249,13 +251,27 @@ interface ActivityItem {
   tone: string;
 }
 
-function buildActivity(datasets: Dataset[], forecasts: Forecast[], reports: Report[]): ActivityItem[] {
+function buildActivity(datasets: Dataset[], forecasts: Forecast[], reports: Report[], chats: Chat[]): ActivityItem[] {
   const items: ActivityItem[] = [
     ...datasets.map((d) => ({ id: `d-${d.id}`, label: `Uploaded ${d.name}`, time: d.created_at, icon: Database, tone: "text-primary" })),
     ...forecasts.map((f) => ({ id: `f-${f.id}`, label: `Forecast on ${f.target_column}`, time: f.created_at, icon: TrendingUp, tone: "text-success" })),
     ...reports.map((r) => ({ id: `r-${r.id}`, label: `Report: ${r.title}`, time: r.created_at, icon: FileText, tone: "text-warning" })),
+    ...chats.map((c) => ({ id: `c-${c.id}`, label: `Chat: ${c.title}`, time: c.created_at, icon: Bot, tone: "text-brand-400" })),
   ];
   return items.sort((a, b) => +new Date(b.time) - +new Date(a.time)).slice(0, 6);
+}
+
+/** Real 7-day sparkline: count of items created per day, scaled to 0–100. */
+function dailySpark(items: { created_at: string }[]): number[] {
+  const days = 7;
+  const now = new Date();
+  const buckets = Array<number>(days).fill(0);
+  for (const it of items) {
+    const diff = Math.floor((+now - +new Date(it.created_at)) / 86_400_000);
+    if (diff >= 0 && diff < days) buckets[days - 1 - diff] += 1;
+  }
+  const max = Math.max(...buckets, 1);
+  return buckets.map((c) => Math.round((c / max) * 100));
 }
 
 function ActivityTimeline({ activity, loading }: { activity: ActivityItem[]; loading: boolean }) {

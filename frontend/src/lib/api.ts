@@ -1,4 +1,5 @@
 import type {
+  AdminStats,
   AuditLog,
   Chat,
   ChatDetail,
@@ -162,9 +163,17 @@ export const api = {
   users: {
     me: () => request<User>("/users/me"),
     updateMe: (data: { full_name?: string }) => request<User>("/users/me", { method: "PATCH", body: data }),
+    changePassword: (current_password: string, new_password: string) =>
+      request<{ message: string }>("/users/me/password", {
+        method: "POST",
+        body: { current_password, new_password },
+      }),
     list: () => request<User[]>("/users"),
     updateRole: (userId: string, role: UserRole) =>
       request<User>(`/users/${userId}/role`, { method: "PATCH", body: { role } }),
+  },
+  admin: {
+    stats: () => request<AdminStats>("/admin/stats"),
   },
   settings: {
     get: () => request<UserSettings>("/settings/me"),
@@ -226,6 +235,7 @@ export const api = {
     get: (id: string) => request<ReportDetail>(`/reports/${id}`),
     create: (data: { dataset_id: string; title: string }) =>
       request<ReportDetail>("/reports", { method: "POST", body: data }),
+    downloadPdf: (id: string, title: string) => downloadBlob(`/reports/${id}/download`, `${title}.pdf`),
     remove: (id: string) => request<void>(`/reports/${id}`, { method: "DELETE" }),
   },
   audit: {
@@ -326,8 +336,8 @@ async function streamChatMessage(
 }
 
 /** Authenticated file download via blob (a plain link can't send the bearer token). */
-async function downloadDataset(id: string, filename: string): Promise<void> {
-  const res = await fetch(`${BASE}/datasets/${id}/download`, {
+async function downloadBlob(path: string, filename: string): Promise<void> {
+  const res = await fetch(`${BASE}${path}`, {
     headers: tokenStore.access ? { Authorization: `Bearer ${tokenStore.access}` } : {},
   });
   if (!res.ok) throw new ApiError(res.status, "Download failed");
@@ -341,3 +351,5 @@ async function downloadDataset(id: string, filename: string): Promise<void> {
   a.remove();
   URL.revokeObjectURL(url);
 }
+
+const downloadDataset = (id: string, filename: string) => downloadBlob(`/datasets/${id}/download`, filename);
