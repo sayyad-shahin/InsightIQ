@@ -1,14 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { api, tokenStore } from "@/lib/api";
-import type { TokenResponse, User } from "@/types/api";
+import { api } from "@/lib/api";
+import type { User } from "@/types/api";
 
 interface AuthContextValue {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
-  setSession: (tokens: TokenResponse) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
@@ -18,15 +17,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Auth lives in httpOnly cookies — probe the session by asking who we are.
   const refreshUser = useCallback(async () => {
-    if (!tokenStore.access) {
-      setUser(null);
-      return;
-    }
     try {
       setUser(await api.users.me());
     } catch {
-      tokenStore.clear();
       setUser(null);
     }
   }, []);
@@ -38,21 +33,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
   }, [refreshUser]);
 
-  const setSession = useCallback(async (tokens: TokenResponse) => {
-    tokenStore.set(tokens);
+  const login = useCallback(async (email: string, password: string) => {
+    await api.auth.login({ email, password }); // sets httpOnly cookies
     setUser(await api.users.me());
   }, []);
 
-  const login = useCallback(
-    async (email: string, password: string) => {
-      const tokens = await api.auth.login({ email, password });
-      await setSession(tokens);
-    },
-    [setSession],
-  );
-
-  const logout = useCallback(() => {
-    tokenStore.clear();
+  const logout = useCallback(async () => {
+    try {
+      await api.auth.logout(); // clears cookies server-side
+    } catch {
+      /* ignore network errors on logout */
+    }
     setUser(null);
   }, []);
 
@@ -62,11 +53,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isLoading,
       isAuthenticated: !!user,
       login,
-      setSession,
       logout,
       refreshUser,
     }),
-    [user, isLoading, login, setSession, logout, refreshUser],
+    [user, isLoading, login, logout, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

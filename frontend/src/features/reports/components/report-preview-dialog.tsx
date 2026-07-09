@@ -58,6 +58,11 @@ export function ReportPreviewDialog({ report, onOpenChange }: { report: Report |
               <Skeleton className="h-20 rounded-xl" />
               <Skeleton className="h-32 rounded-xl" />
             </div>
+          ) : !data.sections ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+              <div className="size-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              <p className="text-sm text-muted-foreground">Generating report…</p>
+            </div>
           ) : (
             <div className="space-y-5">
               {sections.overview && (

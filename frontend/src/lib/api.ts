@@ -21,28 +21,26 @@ import type {
   User,
   UserRole,
   UserSettings,
+  UserStats,
 } from "@/types/api";
 
-const BASE = "/api/v1";
-const ACCESS_KEY = "iq_access_token";
-const REFRESH_KEY = "iq_refresh_token";
+/** Build a ?limit&offset query string (both optional). */
+function page(limit?: number, offset?: number): string {
+  const p = new URLSearchParams();
+  if (limit != null) p.set("limit", String(limit));
+  if (offset != null) p.set("offset", String(offset));
+  const qs = p.toString();
+  return qs ? `?${qs}` : "";
+}
 
-export const tokenStore = {
-  get access() {
-    return localStorage.getItem(ACCESS_KEY);
-  },
-  get refresh() {
-    return localStorage.getItem(REFRESH_KEY);
-  },
-  set(tokens: { access_token: string; refresh_token: string }) {
-    localStorage.setItem(ACCESS_KEY, tokens.access_token);
-    localStorage.setItem(REFRESH_KEY, tokens.refresh_token);
-  },
-  clear() {
-    localStorage.removeItem(ACCESS_KEY);
-    localStorage.removeItem(REFRESH_KEY);
-  },
-};
+const BASE = "/api/v1";
+
+/** Read the JS-readable CSRF cookie for the double-submit header on writes. */
+export function csrfHeaders(method: string): Record<string, string> {
+  if (method === "GET" || method === "HEAD") return {};
+  const match = document.cookie.match(/(?:^|;\s*)iq_csrf=([^;]+)/);
+  return match ? { "X-CSRF-Token": decodeURIComponent(match[1]) } : {};
+}
 
 export class ApiError extends Error {
   status: number;
@@ -69,20 +67,18 @@ function extractMessage(body: unknown, fallback: string): string {
 
 let refreshPromise: Promise<boolean> | null = null;
 
+/** Silently rotate the session using the httpOnly refresh cookie. */
 async function tryRefresh(): Promise<boolean> {
-  if (!tokenStore.refresh) return false;
   if (!refreshPromise) {
     refreshPromise = (async () => {
       try {
         const res = await fetch(`${BASE}/auth/refresh`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refresh_token: tokenStore.refresh }),
+          headers: { "Content-Type": "application/json", ...csrfHeaders("POST") },
+          credentials: "include",
+          body: "{}",
         });
-        if (!res.ok) return false;
-        const data = (await res.json()) as TokenResponse;
-        tokenStore.set(data);
-        return true;
+        return res.ok;
       } catch {
         return false;
       } finally {
@@ -102,15 +98,15 @@ interface RequestOptions {
 }
 
 async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
-  const { method = "GET", body, auth = true, isForm = false, signal } = opts;
+  const { method = "GET", body, isForm = false, signal } = opts;
 
   const doFetch = async (): Promise<Response> => {
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = { ...csrfHeaders(method) };
     if (!isForm && body !== undefined) headers["Content-Type"] = "application/json";
-    if (auth && tokenStore.access) headers["Authorization"] = `Bearer ${tokenStore.access}`;
     return fetch(`${BASE}${path}`, {
       method,
       headers,
+      credentials: "include", // send/receive httpOnly auth cookies
       signal,
       body: isForm ? (body as FormData) : body !== undefined ? JSON.stringify(body) : undefined,
     });
@@ -118,12 +114,10 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
 
   let res = await doFetch();
 
-  if (res.status === 401 && auth && tokenStore.refresh) {
+  // On 401, try one silent cookie refresh + retry (never for auth endpoints).
+  if (res.status === 401 && !path.startsWith("/auth/")) {
     const ok = await tryRefresh();
     if (ok) res = await doFetch();
-    else {
-      tokenStore.clear();
-    }
   }
 
   if (res.status === 204) return undefined as T;
@@ -150,6 +144,7 @@ export const api = {
       request<User>("/auth/signup", { method: "POST", body: data, auth: false }),
     login: (data: { email: string; password: string }) =>
       request<TokenResponse>("/auth/login", { method: "POST", body: data, auth: false }),
+    logout: () => request<void>("/auth/logout", { method: "POST" }),
     forgotPassword: (email: string) =>
       request<{ message: string }>("/auth/forgot-password", { method: "POST", body: { email }, auth: false }),
     resetPassword: (token: string, new_password: string) =>
@@ -162,6 +157,7 @@ export const api = {
   },
   users: {
     me: () => request<User>("/users/me"),
+    stats: () => request<UserStats>("/users/me/stats"),
     updateMe: (data: { full_name?: string }) => request<User>("/users/me", { method: "PATCH", body: data }),
     changePassword: (current_password: string, new_password: string) =>
       request<{ message: string }>("/users/me/password", {
@@ -180,7 +176,7 @@ export const api = {
     update: (data: Partial<UserSettings>) => request<UserSettings>("/settings/me", { method: "PATCH", body: data }),
   },
   datasets: {
-    list: () => request<Dataset[]>("/datasets"),
+    list: (limit?: number, offset?: number) => request<Dataset[]>(`/datasets${page(limit, offset)}`),
     get: (id: string) => request<DatasetDetail>(`/datasets/${id}`),
     preview: (id: string, limit = 100) => request<DatasetPreview>(`/datasets/${id}/preview?limit=${limit}`),
     qualityReport: (id: string) => request<QualityReport>(`/datasets/${id}/quality-report`),
@@ -206,8 +202,13 @@ export const api = {
     createUpload: (file: File, onProgress?: (pct: number) => void) => createCancellableUpload(file, onProgress),
   },
   forecasts: {
-    list: (datasetId?: string) =>
-      request<Forecast[]>(`/forecasts${datasetId ? `?dataset_id=${datasetId}` : ""}`),
+    list: (datasetId?: string, limit?: number) => {
+      const p = new URLSearchParams();
+      if (datasetId) p.set("dataset_id", datasetId);
+      if (limit != null) p.set("limit", String(limit));
+      const qs = p.toString();
+      return request<Forecast[]>(`/forecasts${qs ? `?${qs}` : ""}`);
+    },
     get: (id: string) => request<ForecastDetail>(`/forecasts/${id}`),
     create: (data: {
       dataset_id: string;
@@ -218,7 +219,7 @@ export const api = {
     remove: (id: string) => request<void>(`/forecasts/${id}`, { method: "DELETE" }),
   },
   chats: {
-    list: () => request<Chat[]>("/chats"),
+    list: (limit?: number, offset?: number) => request<Chat[]>(`/chats${page(limit, offset)}`),
     get: (id: string) => request<ChatDetail>(`/chats/${id}`),
     create: (data: { title?: string; dataset_id?: string | null }) =>
       request<Chat>("/chats", { method: "POST", body: data }),
@@ -231,7 +232,7 @@ export const api = {
     remove: (id: string) => request<void>(`/chats/${id}`, { method: "DELETE" }),
   },
   reports: {
-    list: () => request<Report[]>("/reports"),
+    list: (limit?: number, offset?: number) => request<Report[]>(`/reports${page(limit, offset)}`),
     get: (id: string) => request<ReportDetail>(`/reports/${id}`),
     create: (data: { dataset_id: string; title: string }) =>
       request<ReportDetail>("/reports", { method: "POST", body: data }),
@@ -260,7 +261,9 @@ function createCancellableUpload(file: File, onProgress?: (pct: number) => void)
     const form = new FormData();
     form.append("file", file);
     xhr.open("POST", `${BASE}/datasets/upload`);
-    if (tokenStore.access) xhr.setRequestHeader("Authorization", `Bearer ${tokenStore.access}`);
+    xhr.withCredentials = true;
+    const csrf = csrfHeaders("POST")["X-CSRF-Token"];
+    if (csrf) xhr.setRequestHeader("X-CSRF-Token", csrf);
 
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
@@ -297,10 +300,8 @@ async function streamChatMessage(
 ): Promise<void> {
   const res = await fetch(`${BASE}/chats/${chatId}/messages/stream`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(tokenStore.access ? { Authorization: `Bearer ${tokenStore.access}` } : {}),
-    },
+    headers: { "Content-Type": "application/json", ...csrfHeaders("POST") },
+    credentials: "include",
     body: JSON.stringify({ content }),
     signal,
   });
@@ -337,9 +338,7 @@ async function streamChatMessage(
 
 /** Authenticated file download via blob (a plain link can't send the bearer token). */
 async function downloadBlob(path: string, filename: string): Promise<void> {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: tokenStore.access ? { Authorization: `Bearer ${tokenStore.access}` } : {},
-  });
+  const res = await fetch(`${BASE}${path}`, { credentials: "include" });
   if (!res.ok) throw new ApiError(res.status, "Download failed");
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);

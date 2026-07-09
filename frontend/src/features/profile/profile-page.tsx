@@ -35,10 +35,12 @@ export default function ProfilePage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
-  const datasets = useQuery({ queryKey: ["datasets"], queryFn: api.datasets.list });
-  const chats = useQuery({ queryKey: ["chats"], queryFn: api.chats.list });
-  const forecasts = useQuery({ queryKey: ["forecasts", "all"], queryFn: () => api.forecasts.list() });
-  const reports = useQuery({ queryKey: ["reports"], queryFn: api.reports.list });
+  const stats = useQuery({ queryKey: ["me", "stats"], queryFn: api.users.stats });
+  // Bounded lists power only the recent-activity timeline (counts come from stats).
+  const datasets = useQuery({ queryKey: ["datasets"], queryFn: () => api.datasets.list(10) });
+  const chats = useQuery({ queryKey: ["chats"], queryFn: () => api.chats.list(10) });
+  const forecasts = useQuery({ queryKey: ["forecasts", "all"], queryFn: () => api.forecasts.list(undefined, 10) });
+  const reports = useQuery({ queryKey: ["reports"], queryFn: () => api.reports.list(10) });
 
   async function onAvatar(file?: File) {
     if (!file) return;
@@ -104,10 +106,10 @@ export default function ProfilePage() {
         {/* Stats + activity */}
         <div className="space-y-6 lg:col-span-2">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <StatCard label="Datasets" value={datasets.data?.length} loading={datasets.isLoading} icon={Database} />
-            <StatCard label="Chats" value={chats.data?.length} loading={chats.isLoading} icon={Bot} />
-            <StatCard label="Forecasts" value={forecasts.data?.length} loading={forecasts.isLoading} icon={TrendingUp} />
-            <StatCard label="Reports" value={reports.data?.length} loading={reports.isLoading} icon={FileText} />
+            <StatCard label="Datasets" value={stats.data?.datasets} loading={stats.isLoading} icon={Database} />
+            <StatCard label="Chats" value={stats.data?.chats} loading={stats.isLoading} icon={Bot} />
+            <StatCard label="Forecasts" value={stats.data?.forecasts} loading={stats.isLoading} icon={TrendingUp} />
+            <StatCard label="Reports" value={stats.data?.reports} loading={stats.isLoading} icon={FileText} />
           </div>
 
           <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">

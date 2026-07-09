@@ -9,7 +9,7 @@ export const chatKeys = {
 };
 
 export function useChats() {
-  return useQuery({ queryKey: chatKeys.all, queryFn: api.chats.list });
+  return useQuery({ queryKey: chatKeys.all, queryFn: () => api.chats.list() });
 }
 
 export function useChat(id: string | undefined) {

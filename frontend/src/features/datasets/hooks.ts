@@ -16,7 +16,7 @@ const AUTO_REFRESH_MS = 4000;
 export function useDatasets() {
   return useQuery({
     queryKey: datasetKeys.all,
-    queryFn: api.datasets.list,
+    queryFn: () => api.datasets.list(),
     // Poll while anything is still processing so status badges update live.
     refetchInterval: (query) =>
       (query.state.data ?? []).some((d) => d.status === "uploaded" || d.status === "processing")

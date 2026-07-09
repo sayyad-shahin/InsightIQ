@@ -37,10 +37,11 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const datasetsQ = useQuery({ queryKey: ["datasets"], queryFn: api.datasets.list });
+  const statsQ = useQuery({ queryKey: ["me", "stats"], queryFn: api.users.stats });
+  const datasetsQ = useQuery({ queryKey: ["datasets"], queryFn: () => api.datasets.list() });
   const forecastsQ = useQuery({ queryKey: ["forecasts"], queryFn: () => api.forecasts.list() });
-  const reportsQ = useQuery({ queryKey: ["reports"], queryFn: api.reports.list });
-  const chatsQ = useQuery({ queryKey: ["chats"], queryFn: api.chats.list });
+  const reportsQ = useQuery({ queryKey: ["reports"], queryFn: () => api.reports.list(8) });
+  const chatsQ = useQuery({ queryKey: ["chats"], queryFn: () => api.chats.list(8) });
 
   const datasets = datasetsQ.data ?? [];
   const forecasts = forecastsQ.data ?? [];
@@ -88,10 +89,10 @@ export default function DashboardPage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiCard index={0} label="Datasets" value={formatNumber(datasets.length)} icon={Database} spark={dailySpark(datasets)} />
-          <KpiCard index={1} label="Conversations" value={formatNumber(chats.length)} icon={Bot} spark={dailySpark(chats)} />
-          <KpiCard index={2} label="Forecasts" value={formatNumber(forecasts.length)} icon={TrendingUp} spark={dailySpark(forecasts)} />
-          <KpiCard index={3} label="Reports" value={formatNumber(reports.length)} icon={FileText} spark={dailySpark(reports)} />
+          <KpiCard index={0} label="Datasets" value={formatNumber(statsQ.data?.datasets ?? datasets.length)} icon={Database} spark={dailySpark(datasets)} />
+          <KpiCard index={1} label="Conversations" value={formatNumber(statsQ.data?.chats ?? chats.length)} icon={Bot} spark={dailySpark(chats)} />
+          <KpiCard index={2} label="Forecasts" value={formatNumber(statsQ.data?.forecasts ?? forecasts.length)} icon={TrendingUp} spark={dailySpark(forecasts)} />
+          <KpiCard index={3} label="Reports" value={formatNumber(statsQ.data?.reports ?? reports.length)} icon={FileText} spark={dailySpark(reports)} />
         </div>
       )}
 

@@ -20,6 +20,13 @@ export interface TokenResponse {
   token_type: string;
 }
 
+export interface UserStats {
+  datasets: number;
+  chats: number;
+  forecasts: number;
+  reports: number;
+}
+
 export type SourceType = "csv" | "excel" | "pdf" | "sql";
 export type DatasetStatus = "uploaded" | "processing" | "cleaned" | "error";
 

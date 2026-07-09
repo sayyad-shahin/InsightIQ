@@ -1,5 +1,5 @@
 import { Bell, KeyRound, Monitor, Moon, Palette, Save, Shield, Sun, User as UserIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
@@ -199,29 +199,46 @@ function SecurityTab() {
 }
 
 function ApiKeysTab({ prefs, onSave, saving }: { prefs: Record<string, any>; onSave: (p: Record<string, unknown>) => void; saving: boolean }) {
-  const stored = prefs.api_keys ?? {};
+  // Secrets are never returned by the API — only a "set" flag per provider.
+  const setFlags = (prefs.api_keys_set ?? {}) as Record<string, boolean>;
   const [gemini, setGemini] = useState("");
   const [openai, setOpenai] = useState("");
-  useEffect(() => {
-    setGemini(stored.gemini ?? "");
-    setOpenai(stored.openai ?? "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefs]);
+
+  function save() {
+    const keys: Record<string, string> = {};
+    if (gemini) keys.gemini = gemini;
+    if (openai) keys.openai = openai;
+    onSave({ api_keys: keys });
+    setGemini("");
+    setOpenai("");
+  }
 
   return (
-    <Card title="API keys" description="Store provider keys in your profile preferences.">
+    <Card title="API keys" description="Encrypted at rest and never returned by the API.">
       <div className="space-y-2">
         <Label htmlFor="gemini">Google Gemini API key</Label>
-        <Input id="gemini" type="password" value={gemini} onChange={(e) => setGemini(e.target.value)} placeholder="AIza…" />
+        <Input
+          id="gemini"
+          type="password"
+          value={gemini}
+          onChange={(e) => setGemini(e.target.value)}
+          placeholder={setFlags.gemini ? "•••••••••••• (saved — enter to replace)" : "AIza…"}
+        />
       </div>
       <div className="space-y-2">
         <Label htmlFor="openai">OpenAI API key</Label>
-        <Input id="openai" type="password" value={openai} onChange={(e) => setOpenai(e.target.value)} placeholder="sk-…" />
+        <Input
+          id="openai"
+          type="password"
+          value={openai}
+          onChange={(e) => setOpenai(e.target.value)}
+          placeholder={setFlags.openai ? "•••••••••••• (saved — enter to replace)" : "sk-…"}
+        />
       </div>
       <p className="text-xs text-muted-foreground">
-        Keys are saved to your account preferences. The server uses its own configured key for generation.
+        Keys are encrypted with your account. The server uses its own configured key for generation.
       </p>
-      <Button onClick={() => onSave({ api_keys: { gemini, openai } })} loading={saving}>
+      <Button onClick={save} loading={saving} disabled={!gemini && !openai}>
         <Save className="size-4" /> Save keys
       </Button>
     </Card>

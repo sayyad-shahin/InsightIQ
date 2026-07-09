@@ -8,7 +8,7 @@ export const reportKeys = {
 };
 
 export function useReports() {
-  return useQuery({ queryKey: reportKeys.all, queryFn: api.reports.list });
+  return useQuery({ queryKey: reportKeys.all, queryFn: () => api.reports.list() });
 }
 
 export function useReport(id: string | undefined) {
@@ -16,6 +16,8 @@ export function useReport(id: string | undefined) {
     queryKey: reportKeys.detail(id ?? ""),
     queryFn: () => api.reports.get(id!),
     enabled: !!id,
+    // Reports are generated asynchronously — poll until the sections arrive.
+    refetchInterval: (q) => (q.state.data && q.state.data.sections == null ? 2000 : false),
   });
 }
 
