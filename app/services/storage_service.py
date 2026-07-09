@@ -1,3 +1,4 @@
+import shutil
 import uuid
 from pathlib import Path
 
@@ -59,6 +60,15 @@ def save_upload(user_id: uuid.UUID, file: UploadFile, source_type: SourceType) -
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file is empty")
 
     logger.info(f"Stored upload for user {user_id}: {destination_path.name} ({written} bytes)")
+    return destination_path
+
+
+def copy_dataset_file(user_id: uuid.UUID, source_path: str) -> Path:
+    """Copy an existing stored file to a new uniquely-named path (for duplication)."""
+    src = Path(source_path)
+    destination_dir = user_upload_dir(user_id)
+    destination_path = destination_dir / f"{uuid.uuid4().hex}_{src.name}"
+    shutil.copy2(src, destination_path)
     return destination_path
 
 

@@ -1,25 +1,43 @@
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.v1.deps import get_current_user
 from app.core.config import settings
 from app.core.limiter import limiter
+from app.core.logging import logger
 from app.db.session import get_db
-from app.models.dataset import Dataset, DatasetStatus
+from app.models.dataset import Dataset, DatasetStatus, SourceType
 from app.models.user import User
-from app.schemas.dataset import DatasetDetail, DatasetPreviewResponse, DatasetRead
+from app.schemas.dataset import (
+    CleaningOperations,
+    CleaningPreviewResponse,
+    DatasetDetail,
+    DatasetPreviewResponse,
+    DatasetRead,
+    DatasetRename,
+)
 from app.services.audit_service import record_action
 from app.services.dataset_service import (
+    CLEANED_SUFFIX,
+    MAX_PREVIEW_LIMIT,
     UnsupportedDatasetError,
     build_preview,
+    build_quality_report,
+    build_schema_snapshot,
+    clean_dataframe,
+    compute_statistics,
     get_owned_dataset,
+    is_cleaned_path,
     load_dataframe,
+    original_path_for,
+    save_dataframe_csv,
 )
-from app.services.storage_service import delete_file, save_upload
+from app.services.storage_service import copy_dataset_file, delete_file, save_upload
 from app.utils.file_validation import (
     detect_source_type,
     validate_content_type,
@@ -63,8 +81,6 @@ def upload_dataset(
     try:
         process_dataset.delay(str(dataset.id))
     except Exception as exc:  # noqa: BLE001 - broker/connection errors shouldn't 500 the upload
-        from app.core.logging import logger
-
         logger.error(f"Failed to enqueue processing for dataset {dataset.id}: {exc}")
 
     record_action(
@@ -106,22 +122,15 @@ def get_dataset(
     return _get_owned_dataset(db, dataset_id, current_user)
 
 
-@router.get("/{dataset_id}/preview", response_model=DatasetPreviewResponse)
-def preview_dataset(
-    dataset_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> dict:
-    dataset = _get_owned_dataset(db, dataset_id, current_user)
-
+def _load_owned_dataframe(dataset: Dataset):
+    """Load a ready dataset into a DataFrame, mapping failures to HTTP errors."""
     if dataset.status not in (DatasetStatus.CLEANED, DatasetStatus.PROCESSING):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Dataset is not ready for preview (status: {dataset.status.value})",
+            detail=f"Dataset is not ready (status: {dataset.status.value})",
         )
-
     try:
-        df = load_dataframe(Path(dataset.storage_path), dataset.source_type)
+        return load_dataframe(Path(dataset.storage_path), dataset.source_type)
     except UnsupportedDatasetError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     except FileNotFoundError as exc:
@@ -129,7 +138,28 @@ def preview_dataset(
             status_code=status.HTTP_410_GONE, detail="Underlying file is no longer available"
         ) from exc
 
-    return build_preview(df)
+
+@router.get("/{dataset_id}/preview", response_model=DatasetPreviewResponse)
+def preview_dataset(
+    dataset_id: uuid.UUID,
+    limit: int = Query(default=100, ge=1, le=MAX_PREVIEW_LIMIT),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    dataset = _get_owned_dataset(db, dataset_id, current_user)
+    df = _load_owned_dataframe(dataset)
+    return build_preview(df, limit=limit)
+
+
+@router.get("/{dataset_id}/statistics")
+def get_statistics(
+    dataset_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    dataset = _get_owned_dataset(db, dataset_id, current_user)
+    df = _load_owned_dataframe(dataset)
+    return compute_statistics(df)
 
 
 @router.get("/{dataset_id}/quality-report")
@@ -147,6 +177,157 @@ def get_quality_report(
     return dataset.quality_report
 
 
+@router.patch("/{dataset_id}", response_model=DatasetRead)
+def rename_dataset(
+    dataset_id: uuid.UUID,
+    payload: DatasetRename,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Dataset:
+    dataset = _get_owned_dataset(db, dataset_id, current_user)
+    dataset.name = payload.name
+    db.add(dataset)
+    db.commit()
+    db.refresh(dataset)
+    return dataset
+
+
+@router.post("/{dataset_id}/duplicate", response_model=DatasetRead, status_code=status.HTTP_201_CREATED)
+def duplicate_dataset(
+    dataset_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Dataset:
+    source = _get_owned_dataset(db, dataset_id, current_user)
+    try:
+        new_path = copy_dataset_file(current_user.id, source.storage_path)
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE, detail="Underlying file is no longer available"
+        ) from exc
+
+    duplicate = Dataset(
+        owner_id=current_user.id,
+        name=f"{source.name} (copy)",
+        source_type=source.source_type,
+        storage_path=str(new_path),
+        status=source.status,
+        row_count=source.row_count,
+        column_count=source.column_count,
+        schema_snapshot=source.schema_snapshot,
+        quality_report=source.quality_report,
+    )
+    db.add(duplicate)
+    db.commit()
+    db.refresh(duplicate)
+    record_action(db, "dataset.duplicate", user_id=current_user.id, metadata={"source_id": str(source.id)})
+    return duplicate
+
+
+@router.get("/{dataset_id}/download")
+def download_dataset(
+    dataset_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> FileResponse:
+    dataset = _get_owned_dataset(db, dataset_id, current_user)
+    path = Path(dataset.storage_path)
+    if not path.exists():
+        raise HTTPException(status_code=status.HTTP_410_GONE, detail="File is no longer available")
+    return FileResponse(path, filename=dataset.name, media_type="application/octet-stream")
+
+
+def _reprofile(dataset: Dataset, df) -> None:
+    """Recompute metadata after a cleaning apply/undo."""
+    dataset.row_count = len(df)
+    dataset.column_count = len(df.columns)
+    dataset.schema_snapshot = build_schema_snapshot(df)
+    dataset.quality_report = build_quality_report(df)
+    dataset.status = DatasetStatus.CLEANED
+    dataset.error_message = None
+
+
+@router.post("/{dataset_id}/clean/preview", response_model=CleaningPreviewResponse)
+def preview_cleaning(
+    dataset_id: uuid.UUID,
+    operations: CleaningOperations,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    dataset = _get_owned_dataset(db, dataset_id, current_user)
+    original = original_path_for(dataset.storage_path)
+    source_type = detect_source_type(Path(original).name)
+    try:
+        df = load_dataframe(Path(original), source_type)
+    except (UnsupportedDatasetError, FileNotFoundError) as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+    cleaned, summary = clean_dataframe(df, operations.model_dump())
+    return {"summary": summary, "preview": build_preview(cleaned, limit=100)}
+
+
+@router.post("/{dataset_id}/clean/apply", response_model=DatasetDetail)
+def apply_cleaning(
+    dataset_id: uuid.UUID,
+    operations: CleaningOperations,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Dataset:
+    dataset = _get_owned_dataset(db, dataset_id, current_user)
+    # Always derive from the canonical original so re-cleaning is idempotent.
+    original = original_path_for(dataset.storage_path)
+    source_type = detect_source_type(Path(original).name)
+    try:
+        df = load_dataframe(Path(original), source_type)
+    except (UnsupportedDatasetError, FileNotFoundError) as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+    cleaned, summary = clean_dataframe(df, operations.model_dump())
+    cleaned_path = f"{original}{CLEANED_SUFFIX}"
+    save_dataframe_csv(cleaned, Path(cleaned_path))
+
+    dataset.storage_path = cleaned_path
+    dataset.source_type = SourceType.CSV
+    _reprofile(dataset, cleaned)
+    db.add(dataset)
+    db.commit()
+    db.refresh(dataset)
+    record_action(
+        db, "dataset.clean", user_id=current_user.id, metadata={"dataset_id": str(dataset.id), **summary}
+    )
+    return dataset
+
+
+@router.post("/{dataset_id}/clean/undo", response_model=DatasetDetail)
+def undo_cleaning(
+    dataset_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Dataset:
+    dataset = _get_owned_dataset(db, dataset_id, current_user)
+    if not is_cleaned_path(dataset.storage_path):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="This dataset has no cleaning to undo"
+        )
+
+    cleaned_path = dataset.storage_path
+    original = original_path_for(cleaned_path)
+    source_type = detect_source_type(Path(original).name)
+    try:
+        df = load_dataframe(Path(original), source_type)
+    except (UnsupportedDatasetError, FileNotFoundError) as exc:
+        raise HTTPException(status_code=status.HTTP_410_GONE, detail=str(exc)) from exc
+
+    dataset.storage_path = original
+    dataset.source_type = source_type
+    _reprofile(dataset, df)
+    db.add(dataset)
+    db.commit()
+    db.refresh(dataset)
+    delete_file(cleaned_path)
+    return dataset
+
+
 @router.delete("/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_dataset(
     dataset_id: uuid.UUID,
@@ -155,5 +336,7 @@ def delete_dataset(
 ) -> None:
     dataset = _get_owned_dataset(db, dataset_id, current_user)
     delete_file(dataset.storage_path)
+    if is_cleaned_path(dataset.storage_path):
+        delete_file(original_path_for(dataset.storage_path))
     db.delete(dataset)
     db.commit()

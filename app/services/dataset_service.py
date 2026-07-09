@@ -4,6 +4,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 from pypdf import PdfReader
 from sqlalchemy.orm import Session
@@ -11,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.models.dataset import Dataset, SourceType
 
 MAX_PREVIEW_ROWS = 50
+MAX_PREVIEW_LIMIT = 200
 _CREATE_TABLE_RE = re.compile(r"CREATE\s+TABLE\s+[`\"\[]?(\w+)[`\"\]]?", re.IGNORECASE)
 
 
@@ -160,3 +162,204 @@ def build_preview(df: pd.DataFrame, limit: int = MAX_PREVIEW_ROWS) -> dict[str, 
         "total_rows": len(df),
         "previewed_rows": len(preview_df),
     }
+
+
+def quality_score(df: pd.DataFrame) -> int:
+    """
+    A 0–100 data-quality score derived from real metrics: missing cells,
+    duplicate rows, and IQR outliers. Higher is cleaner.
+    """
+    total_rows = len(df)
+    total_cells = total_rows * max(len(df.columns), 1)
+    if total_rows == 0 or total_cells == 0:
+        return 0
+
+    missing_ratio = float(df.isna().sum().sum()) / total_cells
+    duplicate_ratio = float(df.duplicated().sum()) / total_rows
+
+    outlier_cells = 0
+    for col in df.select_dtypes(include="number").columns:
+        series = df[col].dropna()
+        if series.empty:
+            continue
+        q1, q3 = series.quantile(0.25), series.quantile(0.75)
+        iqr = q3 - q1
+        if iqr == 0:
+            continue
+        lower, upper = q1 - 1.5 * iqr, q3 + 1.5 * iqr
+        outlier_cells += int(((series < lower) | (series > upper)).sum())
+    outlier_ratio = outlier_cells / total_cells
+
+    score = 100.0 - (missing_ratio * 40) - (duplicate_ratio * 35) - (outlier_ratio * 25) * 100
+    return int(max(0, min(100, round(score))))
+
+
+def compute_statistics(df: pd.DataFrame) -> dict[str, Any]:
+    """Descriptive statistics, correlation matrix, and per-column distributions."""
+    numeric = df.select_dtypes(include="number")
+
+    statistics: dict[str, Any] = {}
+    for col in numeric.columns:
+        series = numeric[col].dropna()
+        if series.empty:
+            continue
+        statistics[str(col)] = {
+            "count": int(series.count()),
+            "mean": round(float(series.mean()), 4),
+            "std": round(float(series.std()), 4) if series.count() > 1 else 0.0,
+            "min": round(float(series.min()), 4),
+            "q25": round(float(series.quantile(0.25)), 4),
+            "median": round(float(series.quantile(0.5)), 4),
+            "q75": round(float(series.quantile(0.75)), 4),
+            "max": round(float(series.max()), 4),
+        }
+
+    correlation: dict[str, Any] | None = None
+    if numeric.shape[1] >= 2:
+        corr = numeric.corr(numeric_only=True).round(4)
+        correlation = {
+            "columns": [str(c) for c in corr.columns],
+            "matrix": [[None if pd.isna(v) else float(v) for v in row] for row in corr.to_numpy()],
+        }
+
+    distributions: dict[str, Any] = {}
+    for col in df.columns:
+        series = df[col]
+        if col in numeric.columns:
+            values = series.dropna()
+            if values.empty:
+                continue
+            bin_count = int(min(10, max(1, values.nunique())))
+            counts, edges = np.histogram(values.to_numpy(dtype=float), bins=bin_count)
+            distributions[str(col)] = {
+                "type": "numeric",
+                "bins": [
+                    {"start": round(float(edges[i]), 3), "end": round(float(edges[i + 1]), 3), "count": int(counts[i])}
+                    for i in range(len(counts))
+                ],
+            }
+        else:
+            counts = series.astype(str).where(series.notna(), "—").value_counts().head(8)
+            distributions[str(col)] = {
+                "type": "categorical",
+                "values": [{"value": str(k), "count": int(v)} for k, v in counts.items()],
+            }
+
+    return {
+        "row_count": int(len(df)),
+        "column_count": int(len(df.columns)),
+        "quality_score": quality_score(df),
+        "statistics": statistics,
+        "correlation": correlation,
+        "distributions": distributions,
+    }
+
+
+# --- Smart data cleaning ----------------------------------------------------
+
+CleaningOps = dict[str, Any]
+
+
+def clean_dataframe(df: pd.DataFrame, ops: CleaningOps) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """
+    Apply real cleaning transformations and return (cleaned_df, summary).
+    Order matters: normalize text/types/dates before dedup/fill so comparisons
+    and imputations operate on the corrected values.
+    """
+    out = df.copy()
+    applied: list[str] = []
+    rows_before = len(out)
+    missing_before = int(out.isna().sum().sum())
+    duplicates_before = int(out.duplicated().sum())
+
+    if ops.get("trim_whitespace"):
+        for col in out.select_dtypes(include="object").columns:
+            out[col] = out[col].map(lambda v: v.strip() if isinstance(v, str) else v)
+        applied.append("Trimmed whitespace")
+
+    if ops.get("convert_types"):
+        converted_cols = []
+        for col in out.select_dtypes(include="object").columns:
+            non_null = out[col].notna().sum()
+            if non_null == 0:
+                continue
+            coerced = pd.to_numeric(out[col], errors="coerce")
+            if coerced.notna().sum() >= 0.8 * non_null:
+                out[col] = coerced
+                converted_cols.append(str(col))
+        if converted_cols:
+            applied.append(f"Converted to numeric: {', '.join(converted_cols)}")
+
+    if ops.get("normalize_dates"):
+        date_cols = []
+        for col in out.select_dtypes(include="object").columns:
+            non_null = out[col].notna().sum()
+            if non_null == 0:
+                continue
+            parsed = pd.to_datetime(out[col], errors="coerce", format="mixed", dayfirst=False)
+            if parsed.notna().sum() >= 0.8 * non_null:
+                out[col] = parsed.dt.strftime("%Y-%m-%d")
+                date_cols.append(str(col))
+        if date_cols:
+            applied.append(f"Normalized dates: {', '.join(date_cols)}")
+
+    if ops.get("drop_empty_rows"):
+        before = len(out)
+        out = out.dropna(how="all").reset_index(drop=True)
+        if before - len(out):
+            applied.append(f"Removed {before - len(out)} empty row(s)")
+
+    if ops.get("remove_duplicates"):
+        before = len(out)
+        out = out.drop_duplicates().reset_index(drop=True)
+        if before - len(out):
+            applied.append(f"Removed {before - len(out)} duplicate row(s)")
+
+    if ops.get("fill_missing"):
+        strategy = ops.get("fill_strategy", "auto")
+        filled_cols = []
+        for col in out.columns:
+            if not out[col].isna().any():
+                continue
+            if pd.api.types.is_numeric_dtype(out[col]):
+                if strategy == "mean":
+                    value: Any = out[col].mean()
+                elif strategy == "zero":
+                    value = 0
+                else:
+                    value = out[col].median()
+            else:
+                mode = out[col].mode()
+                value = mode.iloc[0] if not mode.empty else ""
+            out[col] = out[col].fillna(value)
+            filled_cols.append(str(col))
+        if filled_cols:
+            applied.append(f"Filled missing values in: {', '.join(filled_cols)}")
+
+    summary = {
+        "rows_before": rows_before,
+        "rows_after": int(len(out)),
+        "rows_removed": rows_before - int(len(out)),
+        "missing_before": missing_before,
+        "missing_after": int(out.isna().sum().sum()),
+        "duplicates_before": duplicates_before,
+        "duplicates_after": int(out.duplicated().sum()),
+        "operations_applied": applied or ["No changes were necessary"],
+    }
+    return out, summary
+
+
+def save_dataframe_csv(df: pd.DataFrame, path: Path) -> None:
+    df.to_csv(path, index=False)
+
+
+CLEANED_SUFFIX = ".cleaned.csv"
+
+
+def is_cleaned_path(storage_path: str) -> bool:
+    return storage_path.endswith(CLEANED_SUFFIX)
+
+
+def original_path_for(storage_path: str) -> str:
+    """The canonical source file for a (possibly cleaned) dataset."""
+    return storage_path[: -len(CLEANED_SUFFIX)] if is_cleaned_path(storage_path) else storage_path

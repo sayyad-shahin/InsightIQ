@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.dataset import DatasetStatus, SourceType
 
@@ -31,3 +31,22 @@ class DatasetPreviewResponse(BaseModel):
     rows: list[dict[str, Any]]
     total_rows: int
     previewed_rows: int
+
+
+class DatasetRename(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+
+
+class CleaningOperations(BaseModel):
+    remove_duplicates: bool = False
+    fill_missing: bool = False
+    drop_empty_rows: bool = False
+    convert_types: bool = False
+    normalize_dates: bool = False
+    trim_whitespace: bool = False
+    fill_strategy: Literal["auto", "mean", "median", "zero"] = "auto"
+
+
+class CleaningPreviewResponse(BaseModel):
+    summary: dict[str, Any]
+    preview: DatasetPreviewResponse

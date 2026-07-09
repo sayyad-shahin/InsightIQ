@@ -50,3 +50,61 @@ def test_cannot_access_another_users_dataset(client):
     dataset = upload_csv(client, owner, CSV)
     other = signup_and_login(client, email="other@example.com")
     assert client.get(f"/api/v1/datasets/{dataset['id']}", headers=other).status_code == 404
+
+
+DIRTY_CSV = "name,score\n Alice ,10\nBob,20\nBob,20\n,\n"
+
+
+def test_statistics_endpoint(client):
+    headers = signup_and_login(client)
+    dataset = upload_csv(client, headers, CSV)
+    resp = client.get(f"/api/v1/datasets/{dataset['id']}/statistics", headers=headers)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["row_count"] == 3
+    assert "revenue" in body["statistics"]
+    assert 0 <= body["quality_score"] <= 100
+
+
+def test_rename_and_duplicate(client):
+    headers = signup_and_login(client)
+    dataset = upload_csv(client, headers, CSV)
+
+    renamed = client.patch(f"/api/v1/datasets/{dataset['id']}", headers=headers, json={"name": "Q3 sales"})
+    assert renamed.status_code == 200
+    assert renamed.json()["name"] == "Q3 sales"
+
+    dup = client.post(f"/api/v1/datasets/{dataset['id']}/duplicate", headers=headers)
+    assert dup.status_code == 201
+    assert dup.json()["name"] == "Q3 sales (copy)"
+    assert len(client.get("/api/v1/datasets", headers=headers).json()) == 2
+
+
+def test_download_dataset(client):
+    headers = signup_and_login(client)
+    dataset = upload_csv(client, headers, CSV)
+    resp = client.get(f"/api/v1/datasets/{dataset['id']}/download", headers=headers)
+    assert resp.status_code == 200
+    assert "revenue" in resp.text
+
+
+def test_clean_preview_apply_and_undo(client):
+    headers = signup_and_login(client)
+    dataset = upload_csv(client, headers, DIRTY_CSV, filename="dirty.csv")
+    ops = {"remove_duplicates": True, "fill_missing": True, "drop_empty_rows": True, "trim_whitespace": True}
+
+    preview = client.post(f"/api/v1/datasets/{dataset['id']}/clean/preview", headers=headers, json=ops)
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["summary"]["duplicates_after"] == 0
+
+    applied = client.post(f"/api/v1/datasets/{dataset['id']}/clean/apply", headers=headers, json=ops)
+    assert applied.status_code == 200, applied.text
+    assert applied.json()["quality_report"]["duplicate_rows"] == 0
+
+    undone = client.post(f"/api/v1/datasets/{dataset['id']}/clean/undo", headers=headers)
+    assert undone.status_code == 200, undone.text
+    # original had a duplicate Bob row again
+    assert undone.json()["quality_report"]["duplicate_rows"] >= 1
+
+    # undoing again should 409 (nothing to undo)
+    assert client.post(f"/api/v1/datasets/{dataset['id']}/clean/undo", headers=headers).status_code == 409
