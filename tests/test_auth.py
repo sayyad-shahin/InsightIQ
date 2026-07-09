@@ -96,3 +96,16 @@ def test_non_admin_cannot_list_users(client):
 
     response = client.get("/api/v1/users", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 403
+
+
+def test_change_password_flow(client):
+    client.post("/api/v1/auth/signup", json={"email": "pw@example.com", "full_name": "PW", "password": "SuperSecret123"})
+    login = client.post("/api/v1/auth/login", json={"email": "pw@example.com", "password": "SuperSecret123"})
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    wrong = client.post("/api/v1/users/me/password", headers=headers, json={"current_password": "nope", "new_password": "BrandNew123"})
+    assert wrong.status_code == 400
+
+    ok = client.post("/api/v1/users/me/password", headers=headers, json={"current_password": "SuperSecret123", "new_password": "BrandNew123"})
+    assert ok.status_code == 200
+    assert client.post("/api/v1/auth/login", json={"email": "pw@example.com", "password": "BrandNew123"}).status_code == 200

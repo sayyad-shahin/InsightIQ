@@ -1,16 +1,22 @@
+import io
 import uuid
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.v1.deps import get_current_user
+from app.core.logging import logger
 from app.db.session import get_db
+from app.models.dataset import DatasetStatus
 from app.models.report import Report
 from app.models.user import User
 from app.schemas.report import ReportCreate, ReportDetail, ReportRead
-from app.services.dataset_service import get_owned_dataset
-from app.services.report_service import build_report_sections
+from app.services.dataset_service import get_owned_dataset, load_dataframe
+from app.services.pdf_service import generate_report_pdf
+from app.services.report_service import build_report_sections, executive_summary
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -25,11 +31,20 @@ def create_report(
     if dataset is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found")
 
+    # Enrich the report with AI-style insights computed from the real data.
+    extra = None
+    if dataset.status == DatasetStatus.CLEANED:
+        try:
+            df = load_dataframe(Path(dataset.storage_path), dataset.source_type)
+            extra = executive_summary(df)
+        except Exception as exc:  # noqa: BLE001 - insights are best-effort, don't fail creation
+            logger.warning(f"Report insights unavailable for dataset {dataset.id}: {exc}")
+
     report = Report(
         dataset_id=dataset.id,
         owner_id=current_user.id,
         title=payload.title,
-        sections=build_report_sections(dataset),
+        sections=build_report_sections(dataset, extra),
     )
     db.add(report)
     db.commit()
@@ -63,6 +78,22 @@ def get_report(
     db: Session = Depends(get_db),
 ) -> Report:
     return _get_owned_report(db, report_id, current_user)
+
+
+@router.get("/{report_id}/download")
+def download_report_pdf(
+    report_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> StreamingResponse:
+    report = _get_owned_report(db, report_id, current_user)
+    pdf_bytes = generate_report_pdf(report)
+    filename = f"{report.title.replace(' ', '_')[:60] or 'report'}.pdf"
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.delete("/{report_id}", status_code=status.HTTP_204_NO_CONTENT)

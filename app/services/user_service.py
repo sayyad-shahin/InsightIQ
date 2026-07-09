@@ -68,6 +68,16 @@ def set_password(db: Session, user: User, new_password: str) -> None:
     db.commit()
 
 
+class InvalidCurrentPasswordError(Exception):
+    """Raised when a password change is attempted with the wrong current password."""
+
+
+def change_password(db: Session, user: User, current_password: str, new_password: str) -> None:
+    if not user.hashed_password or not verify_password(current_password, user.hashed_password):
+        raise InvalidCurrentPasswordError("Current password is incorrect")
+    set_password(db, user, new_password)
+
+
 def mark_email_verified(db: Session, user: User) -> None:
     user.is_email_verified = True
     db.add(user)

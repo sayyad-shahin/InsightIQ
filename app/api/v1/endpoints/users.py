@@ -7,8 +7,9 @@ from sqlalchemy.orm import Session
 from app.api.v1.deps import get_current_user, require_admin
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.user import UserRead, UserRoleUpdate, UserUpdate
+from app.schemas.user import MessageResponse, PasswordChange, UserRead, UserRoleUpdate, UserUpdate
 from app.services.audit_service import record_action
+from app.services.user_service import InvalidCurrentPasswordError, change_password
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -16,6 +17,20 @@ router = APIRouter(prefix="/users", tags=["users"])
 @router.get("/me", response_model=UserRead)
 def read_current_user(current_user: User = Depends(get_current_user)) -> User:
     return current_user
+
+
+@router.post("/me/password", response_model=MessageResponse)
+def change_my_password(
+    payload: PasswordChange,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MessageResponse:
+    try:
+        change_password(db, current_user, payload.current_password, payload.new_password)
+    except InvalidCurrentPasswordError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    record_action(db, "user.password_change", user_id=current_user.id)
+    return MessageResponse(message="Password updated successfully")
 
 
 @router.patch("/me", response_model=UserRead)
