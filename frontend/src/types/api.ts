@@ -148,3 +148,58 @@ export interface AuditLog {
   ip_address: string | null;
   created_at: string;
 }
+
+export interface ColumnStats {
+  count: number;
+  mean: number;
+  std: number;
+  min: number;
+  q25: number;
+  median: number;
+  q75: number;
+  max: number;
+}
+
+export interface CorrelationMatrix {
+  columns: string[];
+  matrix: (number | null)[][];
+}
+
+export type Distribution =
+  | { type: "numeric"; bins: { start: number; end: number; count: number }[] }
+  | { type: "categorical"; values: { value: string; count: number }[] };
+
+export interface DatasetStatistics {
+  row_count: number;
+  column_count: number;
+  quality_score: number;
+  statistics: Record<string, ColumnStats>;
+  correlation: CorrelationMatrix | null;
+  distributions: Record<string, Distribution>;
+}
+
+export interface CleaningOperations {
+  remove_duplicates: boolean;
+  fill_missing: boolean;
+  drop_empty_rows: boolean;
+  convert_types: boolean;
+  normalize_dates: boolean;
+  trim_whitespace: boolean;
+  fill_strategy: "auto" | "mean" | "median" | "zero";
+}
+
+export interface CleaningSummary {
+  rows_before: number;
+  rows_after: number;
+  rows_removed: number;
+  missing_before: number;
+  missing_after: number;
+  duplicates_before: number;
+  duplicates_after: number;
+  operations_applied: string[];
+}
+
+export interface CleaningPreview {
+  summary: CleaningSummary;
+  preview: DatasetPreview;
+}

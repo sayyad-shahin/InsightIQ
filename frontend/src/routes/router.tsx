@@ -10,6 +10,7 @@ const LandingPage = lazy(() => import("@/features/landing/landing-page"));
 const LoginPage = lazy(() => import("@/features/auth/login-page"));
 const SignupPage = lazy(() => import("@/features/auth/signup-page"));
 const DashboardPage = lazy(() => import("@/features/dashboard/dashboard-page"));
+const DatasetsPage = lazy(() => import("@/features/datasets/datasets-page"));
 const NotFoundPage = lazy(() => import("@/features/misc/not-found-page"));
 
 function Lazy({ children }: { children: React.ReactNode }) {
@@ -66,7 +67,14 @@ export const router = createBrowserRouter([
           </Lazy>
         ),
       },
-      { path: "datasets", element: <PlaceholderPage title="Datasets" description="Upload and manage your data sources." /> },
+      {
+        path: "datasets",
+        element: (
+          <Lazy>
+            <DatasetsPage />
+          </Lazy>
+        ),
+      },
       { path: "analytics", element: <PlaceholderPage title="Analytics" description="Explore your data with interactive charts." /> },
       { path: "chat", element: <PlaceholderPage title="AI Chat" description="Ask questions about your data in plain English." /> },
       { path: "forecasts", element: <PlaceholderPage title="Forecasts" description="Predict trends with ML models." /> },

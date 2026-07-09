@@ -3,9 +3,12 @@ import type {
   Chat,
   ChatDetail,
   ChatMessage,
+  CleaningOperations,
+  CleaningPreview,
   Dataset,
   DatasetDetail,
   DatasetPreview,
+  DatasetStatistics,
   Forecast,
   ForecastDetail,
   ForecastModelType,
@@ -169,10 +172,21 @@ export const api = {
   datasets: {
     list: () => request<Dataset[]>("/datasets"),
     get: (id: string) => request<DatasetDetail>(`/datasets/${id}`),
-    preview: (id: string) => request<DatasetPreview>(`/datasets/${id}/preview`),
+    preview: (id: string, limit = 100) => request<DatasetPreview>(`/datasets/${id}/preview?limit=${limit}`),
     qualityReport: (id: string) => request<QualityReport>(`/datasets/${id}/quality-report`),
+    statistics: (id: string) => request<DatasetStatistics>(`/datasets/${id}/statistics`),
+    rename: (id: string, name: string) =>
+      request<Dataset>(`/datasets/${id}`, { method: "PATCH", body: { name } }),
+    duplicate: (id: string) => request<Dataset>(`/datasets/${id}/duplicate`, { method: "POST" }),
+    download: (id: string, filename: string) => downloadDataset(id, filename),
+    cleanPreview: (id: string, ops: CleaningOperations) =>
+      request<CleaningPreview>(`/datasets/${id}/clean/preview`, { method: "POST", body: ops }),
+    cleanApply: (id: string, ops: CleaningOperations) =>
+      request<DatasetDetail>(`/datasets/${id}/clean/apply`, { method: "POST", body: ops }),
+    cleanUndo: (id: string) => request<DatasetDetail>(`/datasets/${id}/clean/undo`, { method: "POST" }),
     remove: (id: string) => request<void>(`/datasets/${id}`, { method: "DELETE" }),
     upload: (file: File, onProgress?: (pct: number) => void) => uploadWithProgress(file, onProgress),
+    createUpload: (file: File, onProgress?: (pct: number) => void) => createCancellableUpload(file, onProgress),
   },
   forecasts: {
     list: (datasetId?: string) =>
@@ -209,10 +223,20 @@ export const api = {
 
 /** Upload with real progress via XHR (fetch lacks upload progress events). */
 function uploadWithProgress(file: File, onProgress?: (pct: number) => void): Promise<Dataset> {
-  return new Promise((resolve, reject) => {
+  return createCancellableUpload(file, onProgress).promise;
+}
+
+export interface CancellableUpload {
+  promise: Promise<Dataset>;
+  abort: () => void;
+}
+
+/** Upload that can be cancelled mid-flight (for the upload queue). */
+function createCancellableUpload(file: File, onProgress?: (pct: number) => void): CancellableUpload {
+  const xhr = new XMLHttpRequest();
+  const promise = new Promise<Dataset>((resolve, reject) => {
     const form = new FormData();
     form.append("file", file);
-    const xhr = new XMLHttpRequest();
     xhr.open("POST", `${BASE}/datasets/upload`);
     if (tokenStore.access) xhr.setRequestHeader("Authorization", `Bearer ${tokenStore.access}`);
 
@@ -230,6 +254,25 @@ function uploadWithProgress(file: File, onProgress?: (pct: number) => void): Pro
       else reject(new ApiError(xhr.status, extractMessage(payload, "Upload failed"), payload));
     };
     xhr.onerror = () => reject(new ApiError(0, "Network error during upload"));
+    xhr.onabort = () => reject(new ApiError(0, "Upload cancelled"));
     xhr.send(form);
   });
+  return { promise, abort: () => xhr.abort() };
+}
+
+/** Authenticated file download via blob (a plain link can't send the bearer token). */
+async function downloadDataset(id: string, filename: string): Promise<void> {
+  const res = await fetch(`${BASE}/datasets/${id}/download`, {
+    headers: tokenStore.access ? { Authorization: `Bearer ${tokenStore.access}` } : {},
+  });
+  if (!res.ok) throw new ApiError(res.status, "Download failed");
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
