@@ -38,3 +38,37 @@ def generate_chat_reply(user_message: str, dataset_context: str | None = None) -
     except Exception as exc:  # noqa: BLE001 - never let a provider error break the endpoint
         logger.error(f"Gemini chat generation failed: {exc}")
         return "The AI assistant is temporarily unavailable. Please try again shortly."
+
+
+def narrate(question: str, computed_facts: str, dataset_name: str | None = None) -> str:
+    """
+    Rephrase already-computed analysis facts into a polished business narrative
+    using the LLM — grounded strictly in the provided numbers. If no LLM is
+    configured (or it errors), the computed facts are returned unchanged, so the
+    answer is always real and never fabricated.
+    """
+    if not is_ai_configured():
+        return computed_facts
+
+    try:
+        import google.generativeai as genai  # lazy: optional heavy dependency
+    except ImportError:
+        return computed_facts
+
+    try:
+        genai.configure(api_key=settings.GOOGLE_API_KEY)
+        model = genai.GenerativeModel(settings.GEMINI_MODEL)
+        prompt = (
+            "You are a senior business analyst. Using ONLY the computed facts below, "
+            "answer the user's question in clear, concise business language. Do NOT "
+            "invent or alter any numbers. Preserve any markdown tables. Keep it tight.\n\n"
+            f"Dataset: {dataset_name or 'the uploaded dataset'}\n"
+            f"User question: {question}\n\n"
+            f"Computed facts:\n{computed_facts}"
+        )
+        response = model.generate_content(prompt)
+        text = (getattr(response, "text", None) or "").strip()
+        return text or computed_facts
+    except Exception as exc:  # noqa: BLE001
+        logger.error(f"Gemini narration failed: {exc}")
+        return computed_facts

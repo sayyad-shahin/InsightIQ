@@ -38,3 +38,68 @@ def test_start_chat_with_unknown_dataset_404(client):
         json={"title": "x", "dataset_id": "00000000-0000-0000-0000-000000000000"},
     )
     assert resp.status_code == 404
+
+
+SALES_CSV = (
+    "region,product,revenue,orders\n"
+    "North,Widget,100,10\nSouth,Gadget,200,20\nEast,Gizmo,150,15\n"
+    "West,Widget,400,40\nNorth,Gadget,900,90\nSouth,Gizmo,130,13\n"
+)
+
+
+def _upload_ready_dataset(client, headers):
+    from tests.helpers import upload_csv
+
+    return upload_csv(client, headers, SALES_CSV, filename="sales.csv")
+
+
+def test_chat_message_on_dataset_returns_chart(client):
+    headers = signup_and_login(client)
+    dataset = _upload_ready_dataset(client, headers)
+    chat = client.post("/api/v1/chats", headers=headers, json={"title": "New conversation", "dataset_id": dataset["id"]}).json()
+
+    resp = client.post(
+        f"/api/v1/chats/{chat['id']}/messages",
+        headers=headers,
+        json={"content": "Which products generated the highest revenue?"},
+    )
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert body["result_type"] == "chart"
+    assert body["result_payload"]["type"] == "bar"
+
+
+def test_chat_auto_titles_from_first_message(client):
+    headers = signup_and_login(client)
+    dataset = _upload_ready_dataset(client, headers)
+    chat = client.post("/api/v1/chats", headers=headers, json={"title": "New conversation", "dataset_id": dataset["id"]}).json()
+    client.post(f"/api/v1/chats/{chat['id']}/messages", headers=headers, json={"content": "Summarize key insights"})
+
+    refreshed = client.get(f"/api/v1/chats/{chat['id']}", headers=headers).json()
+    assert refreshed["title"].startswith("Summarize key insights")
+
+
+def test_rename_conversation(client):
+    headers = signup_and_login(client)
+    chat = client.post("/api/v1/chats", headers=headers, json={"title": "x"}).json()
+    resp = client.patch(f"/api/v1/chats/{chat['id']}", headers=headers, json={"title": "Q3 review"})
+    assert resp.status_code == 200
+    assert resp.json()["title"] == "Q3 review"
+
+
+def test_stream_message_emits_sse_events(client):
+    headers = signup_and_login(client)
+    dataset = _upload_ready_dataset(client, headers)
+    chat = client.post("/api/v1/chats", headers=headers, json={"title": "New conversation", "dataset_id": dataset["id"]}).json()
+
+    resp = client.post(
+        f"/api/v1/chats/{chat['id']}/messages/stream",
+        headers=headers,
+        json={"content": "Show revenue by region"},
+    )
+    assert resp.status_code == 200
+    assert "text/event-stream" in resp.headers["content-type"]
+    assert '"type": "token"' in resp.text
+    assert '"type": "done"' in resp.text
+    # the persisted message id is carried in the done event
+    assert '"result_type"' in resp.text

@@ -1,6 +1,8 @@
+import json
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.api.v1.deps import get_current_user
@@ -15,16 +17,35 @@ from app.schemas.chat import (
     ChatMessageCreate,
     ChatMessageRead,
     ChatRead,
+    ChatRename,
 )
 from app.services.chat_service import (
     add_message_and_reply,
     create_chat,
     get_owned_chat,
     list_chats,
+    rename_chat,
 )
 from app.services.dataset_service import get_owned_dataset
 
 router = APIRouter(prefix="/chats", tags=["chats"])
+
+
+def _serialize_message(message: ChatMessage) -> dict:
+    return {
+        "id": str(message.id),
+        "role": message.role.value,
+        "content": message.content,
+        "result_type": message.result_type.value,
+        "result_payload": message.result_payload,
+        "created_at": message.created_at.isoformat(),
+    }
+
+
+def _chunk_words(text: str, size: int = 4):
+    words = text.split(" ")
+    for i in range(0, len(words), size):
+        yield " ".join(words[i : i + size]) + (" " if i + size < len(words) else "")
 
 
 @router.post("", response_model=ChatRead, status_code=status.HTTP_201_CREATED)
@@ -62,6 +83,17 @@ def get_chat(
     return _require_owned_chat(db, chat_id, current_user)
 
 
+@router.patch("/{chat_id}", response_model=ChatRead)
+def rename_conversation(
+    chat_id: uuid.UUID,
+    payload: ChatRename,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Chat:
+    chat = _require_owned_chat(db, chat_id, current_user)
+    return rename_chat(db, chat, payload.title)
+
+
 @router.post("/{chat_id}/messages", response_model=ChatMessageRead, status_code=status.HTTP_201_CREATED)
 @limiter.limit(settings.RATE_LIMIT_CHAT)
 def post_message(
@@ -73,6 +105,38 @@ def post_message(
 ) -> ChatMessage:
     chat = _require_owned_chat(db, chat_id, current_user)
     return add_message_and_reply(db, chat, payload.content)
+
+
+@router.post("/{chat_id}/messages/stream")
+@limiter.limit(settings.RATE_LIMIT_CHAT)
+def stream_message(
+    chat_id: uuid.UUID,
+    payload: ChatMessageCreate,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> StreamingResponse:
+    """
+    Server-sent-events stream of the assistant reply. The reply is computed and
+    persisted up front (so the DB session isn't used inside the generator), then
+    the text is streamed in word chunks followed by a final `done` event that
+    carries the full persisted message (including any chart payload).
+    """
+    chat = _require_owned_chat(db, chat_id, current_user)
+    assistant = add_message_and_reply(db, chat, payload.content)
+    message = _serialize_message(assistant)
+    text = assistant.content
+
+    def event_stream():
+        for chunk in _chunk_words(text):
+            yield f"data: {json.dumps({'type': 'token', 'content': chunk})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'message': message})}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.delete("/{chat_id}", status_code=status.HTTP_204_NO_CONTENT)

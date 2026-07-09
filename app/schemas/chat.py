@@ -16,6 +16,10 @@ class ChatMessageCreate(BaseModel):
     content: str = Field(min_length=1, max_length=8000)
 
 
+class ChatRename(BaseModel):
+    title: str = Field(min_length=1, max_length=255)
+
+
 class ChatMessageRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
