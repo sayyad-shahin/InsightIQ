@@ -113,6 +113,26 @@ export interface ChatDetail extends Chat {
   messages: ChatMessage[];
 }
 
+export type ChartType = "bar" | "line" | "area" | "pie" | "scatter" | "heatmap";
+
+export interface ChartSeries {
+  name: string;
+  values: (number | null)[];
+}
+
+export interface ChartSpec {
+  type: ChartType;
+  title?: string;
+  x?: (string | number)[];
+  series?: ChartSeries[];
+  x_title?: string;
+  y_title?: string;
+  // heatmap
+  x_labels?: string[];
+  y_labels?: string[];
+  z?: (number | null)[][];
+}
+
 export interface ReportSections {
   overview: Record<string, unknown>;
   schema: { columns: DatasetColumn[] };

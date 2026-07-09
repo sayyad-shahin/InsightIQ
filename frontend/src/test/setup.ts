@@ -18,6 +18,7 @@ afterEach(() => cleanup());
 // jsdom is missing a few browser APIs used by the app.
 window.URL.createObjectURL = vi.fn(() => "blob:mock");
 window.URL.revokeObjectURL = vi.fn();
+Element.prototype.scrollIntoView = vi.fn();
 
 // jsdom lacks matchMedia (used by the theme provider) and ResizeObserver.
 Object.defineProperty(window, "matchMedia", {

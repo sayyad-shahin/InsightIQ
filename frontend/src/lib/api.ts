@@ -207,6 +207,10 @@ export const api = {
       request<Chat>("/chats", { method: "POST", body: data }),
     sendMessage: (chatId: string, content: string) =>
       request<ChatMessage>(`/chats/${chatId}/messages`, { method: "POST", body: { content } }),
+    rename: (id: string, title: string) =>
+      request<Chat>(`/chats/${id}`, { method: "PATCH", body: { title } }),
+    streamMessage: (chatId: string, content: string, handlers: StreamHandlers, signal?: AbortSignal) =>
+      streamChatMessage(chatId, content, handlers, signal),
     remove: (id: string) => request<void>(`/chats/${id}`, { method: "DELETE" }),
   },
   reports: {
@@ -258,6 +262,59 @@ function createCancellableUpload(file: File, onProgress?: (pct: number) => void)
     xhr.send(form);
   });
   return { promise, abort: () => xhr.abort() };
+}
+
+export interface StreamHandlers {
+  onToken: (chunk: string) => void;
+  onDone: (message: ChatMessage) => void;
+  onError?: (error: Error) => void;
+}
+
+/** Consume the assistant reply as a server-sent-events stream (POST + bearer). */
+async function streamChatMessage(
+  chatId: string,
+  content: string,
+  handlers: StreamHandlers,
+  signal?: AbortSignal,
+): Promise<void> {
+  const res = await fetch(`${BASE}/chats/${chatId}/messages/stream`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(tokenStore.access ? { Authorization: `Bearer ${tokenStore.access}` } : {}),
+    },
+    body: JSON.stringify({ content }),
+    signal,
+  });
+  if (!res.ok || !res.body) {
+    throw new ApiError(res.status, "Failed to start stream");
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const events = buffer.split("\n\n");
+    buffer = events.pop() ?? "";
+    for (const evt of events) {
+      const line = evt.split("\n").find((l) => l.startsWith("data:"));
+      if (!line) continue;
+      try {
+        const payload = JSON.parse(line.slice(5).trim()) as
+          | { type: "token"; content: string }
+          | { type: "done"; message: ChatMessage };
+        if (payload.type === "token") handlers.onToken(payload.content);
+        else if (payload.type === "done") handlers.onDone(payload.message);
+      } catch {
+        /* ignore malformed keep-alive lines */
+      }
+    }
+  }
 }
 
 /** Authenticated file download via blob (a plain link can't send the bearer token). */
