@@ -21,6 +21,7 @@ from app.schemas.dataset import (
     DatasetRead,
     DatasetRename,
 )
+from app.services.analytics_service import build_analytics
 from app.services.audit_service import record_action
 from app.services.dataset_service import (
     CLEANED_SUFFIX,
@@ -160,6 +161,19 @@ def get_statistics(
     dataset = _get_owned_dataset(db, dataset_id, current_user)
     df = _load_owned_dataframe(dataset)
     return compute_statistics(df)
+
+
+@router.get("/{dataset_id}/analytics")
+def get_analytics(
+    dataset_id: uuid.UUID,
+    measure: str | None = Query(default=None),
+    dimension: str | None = Query(default=None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    dataset = _get_owned_dataset(db, dataset_id, current_user)
+    df = _load_owned_dataframe(dataset)
+    return build_analytics(df, measure=measure, dimension=dimension)
 
 
 @router.get("/{dataset_id}/quality-report")

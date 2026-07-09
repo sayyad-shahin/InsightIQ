@@ -28,15 +28,31 @@ def _sklearn_forecast(series: pd.Series, horizon: int) -> dict[str, Any]:
     y = series.to_numpy(dtype=float)
     model = LinearRegression().fit(x, y)
 
+    fitted = model.predict(x)
+    residuals = y - fitted
+    resid_std = float(np.std(residuals)) if len(residuals) > 1 else 0.0
+    margin = 1.96 * resid_std  # ~95% prediction band from residual spread
+
     future_x = np.arange(len(series), len(series) + horizon).reshape(-1, 1)
     predictions = model.predict(future_x)
+
+    ss_res = float(np.sum(residuals**2))
+    ss_tot = float(np.sum((y - y.mean()) ** 2)) or 1.0
 
     return {
         "model_used": ForecastModelType.SKLEARN_REGRESSION.value,
         "history": [round(float(v), 6) for v in y.tolist()],
         "forecast": [round(float(v), 6) for v in predictions.tolist()],
+        "lower": [round(float(v - margin), 6) for v in predictions.tolist()],
+        "upper": [round(float(v + margin), 6) for v in predictions.tolist()],
+        "confidence": 0.95,
         "horizon_periods": horizon,
         "trend_slope": round(float(model.coef_[0]), 6),
+        "metrics": {
+            "r2": round(1 - ss_res / ss_tot, 4),
+            "mae": round(float(np.mean(np.abs(residuals))), 4),
+            "rmse": round(float(np.sqrt(np.mean(residuals**2))), 4),
+        },
     }
 
 
@@ -51,15 +67,28 @@ def _prophet_forecast(series: pd.Series, horizon: int) -> dict[str, Any]:
     )
     model = Prophet()
     model.fit(frame)
-    future = model.make_future_dataframe(periods=horizon, freq="D")
-    forecast = model.predict(future).tail(horizon)
+    full = model.predict(model.make_future_dataframe(periods=horizon, freq="D"))
+    in_sample = full.head(len(series))
+    forecast = full.tail(horizon)
+
+    residuals = frame["y"].to_numpy(dtype=float) - in_sample["yhat"].to_numpy(dtype=float)
+    ss_res = float(np.sum(residuals**2))
+    ss_tot = float(np.sum((frame["y"] - frame["y"].mean()) ** 2)) or 1.0
 
     return {
         "model_used": ForecastModelType.PROPHET.value,
         "history": [round(float(v), 6) for v in series.tolist()],
         "forecast": [round(float(v), 6) for v in forecast["yhat"].tolist()],
+        "lower": [round(float(v), 6) for v in forecast["yhat_lower"].tolist()],
+        "upper": [round(float(v), 6) for v in forecast["yhat_upper"].tolist()],
+        "confidence": 0.8,
         "forecast_dates": [d.date().isoformat() for d in forecast["ds"]],
         "horizon_periods": horizon,
+        "metrics": {
+            "r2": round(1 - ss_res / ss_tot, 4),
+            "mae": round(float(np.mean(np.abs(residuals))), 4),
+            "rmse": round(float(np.sqrt(np.mean(residuals**2))), 4),
+        },
     }
 
 

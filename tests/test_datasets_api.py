@@ -108,3 +108,25 @@ def test_clean_preview_apply_and_undo(client):
 
     # undoing again should 409 (nothing to undo)
     assert client.post(f"/api/v1/datasets/{dataset['id']}/clean/undo", headers=headers).status_code == 409
+
+
+ANALYTICS_CSV = (
+    "region,product,revenue,orders\n"
+    "North,Widget,100,10\nSouth,Gadget,200,20\nEast,Gizmo,150,15\n"
+    "West,Widget,400,40\nNorth,Gadget,900,90\nSouth,Gizmo,130,13\n"
+)
+
+
+def test_analytics_endpoint(client):
+    headers = signup_and_login(client)
+    dataset = upload_csv(client, headers, ANALYTICS_CSV, filename="a.csv")
+    resp = client.get(f"/api/v1/datasets/{dataset['id']}/analytics", headers=headers)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["kpis"]["row_count"] == 6
+    assert body["category_breakdown"] is not None
+    assert body["geographic"]["column"] == "region"
+    assert "recommendations" in body["anomalies"]
+
+    scoped = client.get(f"/api/v1/datasets/{dataset['id']}/analytics?measure=orders&dimension=product", headers=headers)
+    assert scoped.json()["primary_measure"] == "orders"

@@ -48,3 +48,19 @@ def test_list_forecasts_filtered_by_dataset(client):
     listing = client.get(f"/api/v1/forecasts?dataset_id={dataset['id']}", headers=headers)
     assert listing.status_code == 200
     assert len(listing.json()) == 1
+
+
+def test_forecast_result_includes_confidence_and_metrics(client):
+    headers = signup_and_login(client)
+    dataset = upload_csv(client, headers, CSV)
+    resp = client.post(
+        "/api/v1/forecasts",
+        headers=headers,
+        json={"dataset_id": dataset["id"], "target_column": "sales", "horizon_periods": 4},
+    )
+    forecast_id = resp.json()["id"]
+    detail = client.get(f"/api/v1/forecasts/{forecast_id}", headers=headers).json()
+    result = detail["result"]
+    assert len(result["lower"]) == 4 and len(result["upper"]) == 4
+    assert all(lo <= f <= up for lo, f, up in zip(result["lower"], result["forecast"], result["upper"]))
+    assert "r2" in result["metrics"] and "mae" in result["metrics"]
