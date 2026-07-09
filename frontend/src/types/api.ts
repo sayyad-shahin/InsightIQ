@@ -75,13 +75,23 @@ export interface Forecast {
   updated_at: string;
 }
 
+export interface ForecastMetrics {
+  r2: number;
+  mae: number;
+  rmse: number;
+}
+
 export interface ForecastResult {
   model_used: string;
   history: number[];
   forecast: number[];
+  lower?: number[];
+  upper?: number[];
+  confidence?: number;
   forecast_dates?: string[];
   horizon_periods: number;
   trend_slope?: number;
+  metrics?: ForecastMetrics;
   note?: string;
 }
 
@@ -222,4 +232,79 @@ export interface CleaningSummary {
 export interface CleaningPreview {
   summary: CleaningSummary;
   preview: DatasetPreview;
+}
+
+// --- Analytics bundle (GET /datasets/{id}/analytics) -----------------------
+
+export interface AnalyticsMeasure {
+  name: string;
+  total: number;
+  mean: number;
+  min: number;
+  max: number;
+  is_primary: boolean;
+}
+
+export interface AnalyticsKpis {
+  row_count: number;
+  column_count: number;
+  quality_score: number;
+  completeness: number;
+  numeric_count: number;
+  measures: AnalyticsMeasure[];
+}
+
+export interface TrendBlock {
+  change_pct: number;
+  direction: "up" | "down" | "flat";
+  peak: { date: string; value: number };
+  chart: ChartSpec;
+}
+
+export interface BreakdownBlock {
+  dimension: string;
+  measure: string;
+  rows: { name: string; value: number; pct: number }[];
+  bar: ChartSpec;
+  pie: ChartSpec;
+}
+
+export interface AnomalyItem {
+  column: string;
+  count: number;
+  pct: number;
+  severity: "low" | "medium" | "high";
+  lower_bound: number;
+  upper_bound: number;
+  extremes: number[];
+  root_cause: string;
+}
+
+export interface BusinessInsights {
+  key_insights: string[];
+  opportunities: string[];
+  risks: string[];
+  revenue_drivers: string[];
+  growth_trends: string[];
+  recommendations: string[];
+}
+
+export interface DatasetAnalytics {
+  primary_measure: string | null;
+  dimension: string | null;
+  date_column: string | null;
+  options: { measures: string[]; dimensions: string[]; date_columns: string[] };
+  kpis: AnalyticsKpis;
+  trend: TrendBlock | null;
+  category_breakdown: BreakdownBlock | null;
+  segmentation: { measure: string; chart: ChartSpec } | null;
+  geographic: { column: string; chart: ChartSpec } | null;
+  correlation: { chart: ChartSpec; top_pairs: { a: string; b: string; value: number }[] } | null;
+  distributions: Record<string, Distribution>;
+  missing_values: {
+    columns: { name: string; missing_count: number; missing_pct: number }[];
+    duplicate_rows: number;
+  };
+  anomalies: { items: AnomalyItem[]; chart: ChartSpec | null; recommendations: string[] };
+  insights: BusinessInsights;
 }

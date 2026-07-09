@@ -8,16 +8,44 @@ export interface PlotlyChartProps {
   layout?: Record<string, unknown>;
   className?: string;
   height?: number;
+  onReady?: (el: HTMLDivElement) => void;
 }
 
 const FONT = "Inter, ui-sans-serif, system-ui, sans-serif";
+
+/** Download the rendered chart as PNG or SVG. */
+export async function downloadPlot(el: HTMLDivElement, format: "png" | "svg", filename: string) {
+  const dataUrl = await Plotly.downloadImage(el, { format, filename, width: 1200, height: 700, scale: 2 });
+  return dataUrl;
+}
+
+/** Open a print-ready window with the chart image (users can Save as PDF). */
+export async function printPlot(el: HTMLDivElement, title: string) {
+  const dataUrl = (await Plotly.downloadImage(el, {
+    format: "png",
+    filename: "chart",
+    width: 1200,
+    height: 700,
+    scale: 2,
+  })) as unknown as string;
+  const win = window.open("", "_blank", "width=900,height=700");
+  if (!win) return;
+  win.document.write(
+    `<!doctype html><html><head><title>${title}</title></head>` +
+      `<body style="margin:24px;font-family:sans-serif"><h3>${title}</h3>` +
+      `<img src="${dataUrl}" style="max-width:100%"/></body></html>`,
+  );
+  win.document.close();
+  win.focus();
+  win.print();
+}
 
 /**
  * Theme-aware Plotly wrapper. Uses Plotly.react for efficient updates and
  * injects a transparent background + our color tokens so charts match the UI
  * in both light and dark mode. Interactive: zoom, pan, hover, download, reset.
  */
-export function PlotlyChart({ data, layout, className, height = 320 }: PlotlyChartProps) {
+export function PlotlyChart({ data, layout, className, height = 320, onReady }: PlotlyChartProps) {
   const ref = useRef<HTMLDivElement>(null);
   const { resolvedTheme } = useTheme();
 
@@ -51,11 +79,11 @@ export function PlotlyChart({ data, layout, className, height = 320 }: PlotlyCha
       toImageButtonOptions: { format: "png", filename: "insightiq-chart", scale: 2 },
     };
 
-    Plotly.react(el, data, mergedLayout, config);
+    Plotly.react(el, data, mergedLayout, config).then(() => onReady?.(el));
     return () => {
       if (el) Plotly.purge(el);
     };
-  }, [data, layout, height, resolvedTheme]);
+  }, [data, layout, height, resolvedTheme, onReady]);
 
   return <div ref={ref} className={cn("w-full", className)} style={{ height }} />;
 }

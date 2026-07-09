@@ -6,6 +6,7 @@ import type {
   CleaningOperations,
   CleaningPreview,
   Dataset,
+  DatasetAnalytics,
   DatasetDetail,
   DatasetPreview,
   DatasetStatistics,
@@ -175,6 +176,13 @@ export const api = {
     preview: (id: string, limit = 100) => request<DatasetPreview>(`/datasets/${id}/preview?limit=${limit}`),
     qualityReport: (id: string) => request<QualityReport>(`/datasets/${id}/quality-report`),
     statistics: (id: string) => request<DatasetStatistics>(`/datasets/${id}/statistics`),
+    analytics: (id: string, opts?: { measure?: string; dimension?: string }) => {
+      const params = new URLSearchParams();
+      if (opts?.measure) params.set("measure", opts.measure);
+      if (opts?.dimension) params.set("dimension", opts.dimension);
+      const qs = params.toString();
+      return request<DatasetAnalytics>(`/datasets/${id}/analytics${qs ? `?${qs}` : ""}`);
+    },
     rename: (id: string, name: string) =>
       request<Dataset>(`/datasets/${id}`, { method: "PATCH", body: { name } }),
     duplicate: (id: string) => request<Dataset>(`/datasets/${id}/duplicate`, { method: "POST" }),

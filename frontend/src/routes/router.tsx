@@ -12,6 +12,8 @@ const SignupPage = lazy(() => import("@/features/auth/signup-page"));
 const DashboardPage = lazy(() => import("@/features/dashboard/dashboard-page"));
 const DatasetsPage = lazy(() => import("@/features/datasets/datasets-page"));
 const ChatPage = lazy(() => import("@/features/chat/chat-page"));
+const AnalyticsPage = lazy(() => import("@/features/analytics/analytics-page"));
+const ForecastsPage = lazy(() => import("@/features/forecasts/forecasts-page"));
 const NotFoundPage = lazy(() => import("@/features/misc/not-found-page"));
 
 function Lazy({ children }: { children: React.ReactNode }) {
@@ -76,7 +78,14 @@ export const router = createBrowserRouter([
           </Lazy>
         ),
       },
-      { path: "analytics", element: <PlaceholderPage title="Analytics" description="Explore your data with interactive charts." /> },
+      {
+        path: "analytics",
+        element: (
+          <Lazy>
+            <AnalyticsPage />
+          </Lazy>
+        ),
+      },
       {
         path: "chat",
         element: (
@@ -85,7 +94,14 @@ export const router = createBrowserRouter([
           </Lazy>
         ),
       },
-      { path: "forecasts", element: <PlaceholderPage title="Forecasts" description="Predict trends with ML models." /> },
+      {
+        path: "forecasts",
+        element: (
+          <Lazy>
+            <ForecastsPage />
+          </Lazy>
+        ),
+      },
       { path: "reports", element: <PlaceholderPage title="Reports" description="Generate shareable summaries." /> },
       { path: "admin", element: <PlaceholderPage title="Admin" description="Manage users and review the audit trail." /> },
       { path: "settings", element: <PlaceholderPage title="Settings" description="Manage your workspace preferences." /> },
