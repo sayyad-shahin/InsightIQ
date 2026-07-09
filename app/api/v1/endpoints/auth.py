@@ -76,6 +76,7 @@ def signup(payload: UserSignup, request: Request, db: Session = Depends(get_db))
     send_verification_email(user.email, token)
 
     record_action(db, "user.signup", user_id=user.id, ip_address=request.client.host if request.client else None)
+    db.commit()
     return user
 
 
@@ -91,6 +92,7 @@ def login(payload: UserLogin, request: Request, db: Session = Depends(get_db)) -
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is disabled")
 
     record_action(db, "user.login", user_id=user.id, ip_address=request.client.host if request.client else None)
+    db.commit()
     return _issue_tokens(user)
 
 
@@ -149,6 +151,7 @@ def reset_password(
 
     set_password(db, user, payload.new_password)
     record_action(db, "user.password_reset", user_id=user.id)
+    db.commit()
     return MessageResponse(message="Password updated successfully")
 
 

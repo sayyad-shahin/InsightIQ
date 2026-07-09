@@ -3,6 +3,7 @@ from collections.abc import Generator
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from app.core.config import settings
 
@@ -13,12 +14,19 @@ def _build_engine() -> Engine:
 
     Connection pooling arguments only apply to real pooled backends (PostgreSQL).
     SQLite — used by the test suite — rejects pool_size/max_overflow, so we branch
-    on the dialect and pass the right arguments for each.
+    on the dialect. For in-memory SQLite we pin a single shared connection via
+    StaticPool so every session (API requests and eager Celery tasks) sees the
+    same database.
     """
     url = settings.DATABASE_URL
     if url.startswith("sqlite"):
-        connect_args = {"check_same_thread": False} if ":memory:" in url or "mode=memory" in url else {}
-        return create_engine(url, connect_args=connect_args, pool_pre_ping=True)
+        if ":memory:" in url or "mode=memory" in url:
+            return create_engine(
+                url,
+                connect_args={"check_same_thread": False},
+                poolclass=StaticPool,
+            )
+        return create_engine(url, connect_args={"check_same_thread": False}, pool_pre_ping=True)
 
     return create_engine(
         url,

@@ -21,7 +21,9 @@ def test_settings_update(client):
     body = resp.json()
     assert body["theme"] == "dark"
     assert body["language"] == "fr"
-    assert body["preferences"] == {"density": "compact"}
+    assert body["preferences"]["density"] == "compact"
+    # secrets are never returned; only a "set" flag map is exposed
+    assert "api_keys_set" in body["preferences"]
 
 
 def test_settings_requires_auth(client):

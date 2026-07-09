@@ -9,6 +9,7 @@ celery_app = Celery(
     include=[
         "app.workers.tasks.dataset_tasks",
         "app.workers.tasks.forecast_tasks",
+        "app.workers.tasks.report_tasks",
     ],
 )
 

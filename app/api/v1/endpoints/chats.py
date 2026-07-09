@@ -1,7 +1,7 @@
 import json
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -61,10 +61,12 @@ def start_chat(
 
 @router.get("", response_model=list[ChatRead])
 def get_chats(
+    limit: int | None = Query(default=None, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[Chat]:
-    return list_chats(db, current_user.id)
+    return list_chats(db, current_user.id, limit=limit, offset=offset)
 
 
 def _require_owned_chat(db: Session, chat_id: uuid.UUID, user: User) -> Chat:

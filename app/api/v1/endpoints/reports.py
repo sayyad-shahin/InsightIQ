@@ -1,8 +1,7 @@
 import io
 import uuid
-from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -10,18 +9,17 @@ from sqlalchemy.orm import Session
 from app.api.v1.deps import get_current_user
 from app.core.logging import logger
 from app.db.session import get_db
-from app.models.dataset import DatasetStatus
 from app.models.report import Report
 from app.models.user import User
 from app.schemas.report import ReportCreate, ReportDetail, ReportRead
-from app.services.dataset_service import get_owned_dataset, load_dataframe
+from app.services.dataset_service import get_owned_dataset
 from app.services.pdf_service import generate_report_pdf
-from app.services.report_service import build_report_sections, executive_summary
+from app.workers.tasks.report_tasks import generate_report
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 
-@router.post("", response_model=ReportDetail, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=ReportDetail, status_code=status.HTTP_202_ACCEPTED)
 def create_report(
     payload: ReportCreate,
     current_user: User = Depends(get_current_user),
@@ -31,35 +29,36 @@ def create_report(
     if dataset is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found")
 
-    # Enrich the report with AI-style insights computed from the real data.
-    extra = None
-    if dataset.status == DatasetStatus.CLEANED:
-        try:
-            df = load_dataframe(Path(dataset.storage_path), dataset.source_type)
-            extra = executive_summary(df)
-        except Exception as exc:  # noqa: BLE001 - insights are best-effort, don't fail creation
-            logger.warning(f"Report insights unavailable for dataset {dataset.id}: {exc}")
-
-    report = Report(
-        dataset_id=dataset.id,
-        owner_id=current_user.id,
-        title=payload.title,
-        sections=build_report_sections(dataset, extra),
-    )
+    # Create the row immediately (sections null = pending) and build the report —
+    # which computes AI insights from the full dataset — off the request thread.
+    report = Report(dataset_id=dataset.id, owner_id=current_user.id, title=payload.title, sections=None)
     db.add(report)
     db.commit()
     db.refresh(report)
+
+    try:
+        generate_report.delay(str(report.id))
+    except Exception as exc:  # noqa: BLE001 - broker down shouldn't fail creation
+        logger.error(f"Failed to enqueue report {report.id}: {exc}")
+
+    db.refresh(report)  # in eager mode the task has already populated sections
     return report
 
 
 @router.get("", response_model=list[ReportRead])
 def list_reports(
+    limit: int | None = Query(default=None, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[Report]:
     return list(
         db.scalars(
-            select(Report).where(Report.owner_id == current_user.id).order_by(Report.created_at.desc())
+            select(Report)
+            .where(Report.owner_id == current_user.id)
+            .order_by(Report.created_at.desc())
+            .offset(offset)
+            .limit(limit)
         )
     )
 

@@ -7,9 +7,11 @@ from app.core.logging import logger
 
 def _send(to_email: str, subject: str, html_body: str) -> None:
     if not settings.SMTP_HOST or not settings.SMTP_USER:
-        # Development fallback: log the email instead of sending it so local
-        # setups without SMTP credentials still work end to end.
-        logger.info(f"[email:dev-mode] To={to_email} Subject={subject}\n{html_body}")
+        # Development fallback: don't send. Log recipient + subject at INFO (safe),
+        # and the full body/link only at DEBUG so verification/reset TOKENS never
+        # appear in production logs (which run at INFO).
+        logger.info(f"[email:dev-mode] To={to_email} Subject='{subject}' (SMTP not configured)")
+        logger.debug(f"[email:dev-mode] body for {to_email}:\n{html_body}")
         return
 
     message = EmailMessage()

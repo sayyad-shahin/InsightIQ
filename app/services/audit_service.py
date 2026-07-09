@@ -18,7 +18,8 @@ def record_action(
         log_metadata=metadata,
         ip_address=ip_address,
     )
+    # Flush (not commit) so the audit row participates in the caller's transaction
+    # and is committed atomically with — or right after — the action it records.
     db.add(entry)
-    db.commit()
-    db.refresh(entry)
+    db.flush()
     return entry

@@ -12,9 +12,10 @@ def test_create_and_fetch_report(client):
         headers=headers,
         json={"dataset_id": dataset["id"], "title": "Q3 Summary"},
     )
-    assert resp.status_code == 201, resp.text
+    assert resp.status_code == 202, resp.text  # generated asynchronously
     body = resp.json()
     assert body["title"] == "Q3 Summary"
+    # under eager Celery the sections are already populated
     assert body["sections"]["overview"]["row_count"] == 3
 
     report_id = body["id"]

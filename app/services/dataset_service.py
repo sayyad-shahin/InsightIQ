@@ -94,6 +94,60 @@ def _load_dataframe_from_pdf(path: Path) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+# --- Parsed dataframe artifact (avoid repeated CSV/Excel/PDF parsing) --------
+
+def _artifact_paths(storage_path: str) -> tuple[Path, Path]:
+    return Path(f"{storage_path}.parquet"), Path(f"{storage_path}.pkl")
+
+
+def write_parsed_artifact(df: pd.DataFrame, storage_path: str) -> None:
+    """Persist a fast-to-read parsed copy. Prefers parquet, falls back to pickle."""
+    parquet, pkl = _artifact_paths(storage_path)
+    try:
+        df.to_parquet(parquet, index=False)
+    except Exception:  # noqa: BLE001 - pyarrow/fastparquet not available
+        try:
+            df.to_pickle(pkl)
+        except Exception:  # noqa: BLE001 - best-effort cache; never fail the caller
+            pass
+
+
+def read_parsed_artifact(storage_path: str) -> pd.DataFrame | None:
+    parquet, pkl = _artifact_paths(storage_path)
+    if parquet.exists():
+        try:
+            return pd.read_parquet(parquet)
+        except Exception:  # noqa: BLE001
+            pass
+    if pkl.exists():
+        try:
+            return pd.read_pickle(pkl)
+        except Exception:  # noqa: BLE001
+            pass
+    return None
+
+
+def delete_parsed_artifacts(storage_path: str) -> None:
+    for p in _artifact_paths(storage_path):
+        try:
+            p.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def load_analysis_dataframe(dataset: Dataset) -> pd.DataFrame:
+    """
+    Load a dataset for analysis, reusing a parsed artifact when present so large
+    files aren't re-parsed on every analytics/statistics/chat request.
+    """
+    cached = read_parsed_artifact(dataset.storage_path)
+    if cached is not None:
+        return cached
+    df = load_dataframe(Path(dataset.storage_path), dataset.source_type)
+    write_parsed_artifact(df, dataset.storage_path)
+    return df
+
+
 def build_schema_snapshot(df: pd.DataFrame) -> dict[str, Any]:
     return {
         "columns": [

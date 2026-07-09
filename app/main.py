@@ -107,4 +107,42 @@ def health_check() -> dict:
     return {"status": "ok", "app": settings.APP_NAME, "environment": settings.APP_ENV}
 
 
+@app.get("/health/live", tags=["health"])
+def health_live() -> dict:
+    """Liveness: the process is up. Never touches dependencies."""
+    return {"status": "alive"}
+
+
+@app.get("/health/ready", tags=["health"])
+def health_ready() -> JSONResponse:
+    """Readiness: verify PostgreSQL and Redis before accepting traffic."""
+    from sqlalchemy import text
+
+    from app.db.session import engine
+
+    checks = {"database": False, "redis": False}
+
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        checks["database"] = True
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"Readiness: database check failed: {exc}")
+
+    try:
+        import redis
+
+        client = redis.Redis.from_url(settings.REDIS_URL, socket_connect_timeout=0.5, socket_timeout=0.5)
+        client.ping()
+        checks["redis"] = True
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"Readiness: redis check failed: {exc}")
+
+    ready = all(checks.values())
+    return JSONResponse(
+        status_code=status.HTTP_200_OK if ready else status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={"status": "ready" if ready else "not_ready", "checks": checks},
+    )
+
+
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)

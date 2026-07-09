@@ -57,13 +57,15 @@ def _owned_forecast_query(user_id: uuid.UUID):
 @router.get("", response_model=list[ForecastRead])
 def list_forecasts(
     dataset_id: uuid.UUID | None = Query(default=None),
+    limit: int | None = Query(default=None, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[Forecast]:
     query = _owned_forecast_query(current_user.id)
     if dataset_id is not None:
         query = query.where(Forecast.dataset_id == dataset_id)
-    return list(db.scalars(query.order_by(Forecast.created_at.desc())))
+    return list(db.scalars(query.order_by(Forecast.created_at.desc()).offset(offset).limit(limit)))
 
 
 def _get_owned_forecast(db: Session, forecast_id: uuid.UUID, user: User) -> Forecast:

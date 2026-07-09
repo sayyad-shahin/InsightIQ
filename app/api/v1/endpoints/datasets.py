@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.v1.deps import get_current_user
+from app.core.cache import cache_get, cache_set, dataset_key, invalidate_dataset
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.logging import logger
@@ -32,11 +33,14 @@ from app.services.dataset_service import (
     build_schema_snapshot,
     clean_dataframe,
     compute_statistics,
+    delete_parsed_artifacts,
     get_owned_dataset,
     is_cleaned_path,
+    load_analysis_dataframe,
     load_dataframe,
     original_path_for,
     save_dataframe_csv,
+    write_parsed_artifact,
 )
 from app.services.storage_service import copy_dataset_file, delete_file, save_upload
 from app.utils.file_validation import (
@@ -91,18 +95,25 @@ def upload_dataset(
         metadata={"dataset_id": str(dataset.id), "filename": file.filename},
         ip_address=request.client.host if request.client else None,
     )
+    db.commit()
 
     return dataset
 
 
 @router.get("", response_model=list[DatasetRead])
 def list_datasets(
+    limit: int | None = Query(default=None, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[Dataset]:
     return list(
         db.scalars(
-            select(Dataset).where(Dataset.owner_id == current_user.id).order_by(Dataset.created_at.desc())
+            select(Dataset)
+            .where(Dataset.owner_id == current_user.id)
+            .order_by(Dataset.created_at.desc())
+            .offset(offset)
+            .limit(limit)
         )
     )
 
@@ -131,7 +142,7 @@ def _load_owned_dataframe(dataset: Dataset):
             detail=f"Dataset is not ready (status: {dataset.status.value})",
         )
     try:
-        return load_dataframe(Path(dataset.storage_path), dataset.source_type)
+        return load_analysis_dataframe(dataset)
     except UnsupportedDatasetError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     except FileNotFoundError as exc:
@@ -159,8 +170,13 @@ def get_statistics(
     db: Session = Depends(get_db),
 ) -> dict:
     dataset = _get_owned_dataset(db, dataset_id, current_user)
-    df = _load_owned_dataframe(dataset)
-    return compute_statistics(df)
+    key = dataset_key("statistics", str(dataset_id), dataset.updated_at)
+    cached = cache_get(key)
+    if cached is not None:
+        return cached
+    result = compute_statistics(_load_owned_dataframe(dataset))
+    cache_set(key, result)
+    return result
 
 
 @router.get("/{dataset_id}/analytics")
@@ -172,8 +188,13 @@ def get_analytics(
     db: Session = Depends(get_db),
 ) -> dict:
     dataset = _get_owned_dataset(db, dataset_id, current_user)
-    df = _load_owned_dataframe(dataset)
-    return build_analytics(df, measure=measure, dimension=dimension)
+    key = dataset_key("analytics", str(dataset_id), dataset.updated_at, measure or "", dimension or "")
+    cached = cache_get(key)
+    if cached is not None:
+        return cached
+    result = build_analytics(_load_owned_dataframe(dataset), measure=measure, dimension=dimension)
+    cache_set(key, result)
+    return result
 
 
 @router.get("/{dataset_id}/quality-report")
@@ -235,6 +256,7 @@ def duplicate_dataset(
     db.commit()
     db.refresh(duplicate)
     record_action(db, "dataset.duplicate", user_id=current_user.id, metadata={"source_id": str(source.id)})
+    db.commit()
     return duplicate
 
 
@@ -299,6 +321,7 @@ def apply_cleaning(
     cleaned, summary = clean_dataframe(df, operations.model_dump())
     cleaned_path = f"{original}{CLEANED_SUFFIX}"
     save_dataframe_csv(cleaned, Path(cleaned_path))
+    write_parsed_artifact(cleaned, cleaned_path)
 
     dataset.storage_path = cleaned_path
     dataset.source_type = SourceType.CSV
@@ -306,9 +329,11 @@ def apply_cleaning(
     db.add(dataset)
     db.commit()
     db.refresh(dataset)
+    invalidate_dataset(str(dataset.id))
     record_action(
         db, "dataset.clean", user_id=current_user.id, metadata={"dataset_id": str(dataset.id), **summary}
     )
+    db.commit()
     return dataset
 
 
@@ -339,6 +364,8 @@ def undo_cleaning(
     db.commit()
     db.refresh(dataset)
     delete_file(cleaned_path)
+    delete_parsed_artifacts(cleaned_path)
+    invalidate_dataset(str(dataset.id))
     return dataset
 
 
@@ -350,7 +377,11 @@ def delete_dataset(
 ) -> None:
     dataset = _get_owned_dataset(db, dataset_id, current_user)
     delete_file(dataset.storage_path)
+    delete_parsed_artifacts(dataset.storage_path)
     if is_cleaned_path(dataset.storage_path):
-        delete_file(original_path_for(dataset.storage_path))
+        original = original_path_for(dataset.storage_path)
+        delete_file(original)
+        delete_parsed_artifacts(original)
+    invalidate_dataset(str(dataset.id))
     db.delete(dataset)
     db.commit()

@@ -1,5 +1,4 @@
 import uuid
-from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -8,7 +7,7 @@ from app.models.chat import Chat, ChatMessage, MessageRole, ResultType
 from app.models.dataset import Dataset, DatasetStatus
 from app.services import analysis_service
 from app.services.ai_service import generate_chat_reply, narrate
-from app.services.dataset_service import load_dataframe
+from app.services.dataset_service import load_analysis_dataframe
 
 
 def create_chat(db: Session, user_id: uuid.UUID, title: str, dataset_id: uuid.UUID | None) -> Chat:
@@ -19,9 +18,17 @@ def create_chat(db: Session, user_id: uuid.UUID, title: str, dataset_id: uuid.UU
     return chat
 
 
-def list_chats(db: Session, user_id: uuid.UUID) -> list[Chat]:
+def list_chats(
+    db: Session, user_id: uuid.UUID, limit: int | None = None, offset: int = 0
+) -> list[Chat]:
     return list(
-        db.scalars(select(Chat).where(Chat.user_id == user_id).order_by(Chat.created_at.desc()))
+        db.scalars(
+            select(Chat)
+            .where(Chat.user_id == user_id)
+            .order_by(Chat.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
     )
 
 
@@ -58,7 +65,7 @@ def _load_bound_dataframe(db: Session, dataset_id: uuid.UUID | None):
     if dataset is None or dataset.status != DatasetStatus.CLEANED:
         return None, dataset.name if dataset else None
     try:
-        return load_dataframe(Path(dataset.storage_path), dataset.source_type), dataset.name
+        return load_analysis_dataframe(dataset), dataset.name
     except Exception:  # noqa: BLE001 - fall back to a text answer if the file can't be read
         return None, dataset.name
 

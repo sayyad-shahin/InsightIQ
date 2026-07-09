@@ -11,6 +11,7 @@ from app.services.dataset_service import (
     build_quality_report,
     build_schema_snapshot,
     load_dataframe,
+    write_parsed_artifact,
 )
 from app.workers.celery_app import celery_app
 
@@ -50,6 +51,9 @@ def process_dataset(self, dataset_id: str) -> None:
             dataset.error_message = None
             db.add(dataset)
             db.commit()
+
+            # Persist a parsed artifact so analytics/chat don't re-parse the file.
+            write_parsed_artifact(df, dataset.storage_path)
             logger.info(f"Dataset {dataset_id} processed: {dataset.row_count} rows")
 
         except (UnsupportedDatasetError, FileNotFoundError) as exc:
