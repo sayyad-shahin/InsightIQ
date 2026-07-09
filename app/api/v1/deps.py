@@ -1,19 +1,22 @@
 import uuid
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
+from app.core.cookies import ACCESS_COOKIE
 from app.core.security import InvalidTokenError, decode_token
 from app.db.session import get_db
 from app.models.user import User, UserRole
 from app.services.user_service import get_user_by_id
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+# auto_error=False so a missing Authorization header falls through to the cookie.
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    request: Request,
+    header_token: str | None = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> User:
     credentials_exception = HTTPException(
@@ -21,6 +24,12 @@ def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+    # An explicit bearer header (API clients) wins; browsers use the httpOnly cookie.
+    # Browsers never auto-send Authorization, so cookie-only requests stay CSRF-guarded.
+    token = header_token or request.cookies.get(ACCESS_COOKIE)
+    if not token:
+        raise credentials_exception
 
     try:
         subject = decode_token(token, expected_type="access")

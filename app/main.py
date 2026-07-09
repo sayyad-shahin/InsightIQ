@@ -11,8 +11,11 @@ from slowapi.middleware import SlowAPIMiddleware
 
 from app.api.v1.api import api_router
 from app.core.config import settings
+from app.core.cookies import ACCESS_COOKIE, CSRF_COOKIE, REFRESH_COOKIE
 from app.core.limiter import limiter
 from app.core.logging import configure_logging, logger
+
+SAFE_METHODS = {"GET", "HEAD", "OPTIONS", "TRACE"}
 
 configure_logging()
 
@@ -45,6 +48,30 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def csrf_protect(request: Request, call_next):
+    """
+    Double-submit CSRF for cookie-authenticated, state-changing requests. Skipped
+    when the caller uses an Authorization header (not CSRF-able) or has no auth
+    cookie yet (e.g. login/signup).
+    """
+    path = request.url.path
+    # Auth bootstrap endpoints (login/signup/refresh/logout/reset) establish or
+    # rotate the session and are exempt — they can't carry a CSRF token yet.
+    if request.method not in SAFE_METHODS and path.startswith("/api") and not path.startswith("/api/v1/auth"):
+        if not request.headers.get("authorization"):
+            cookie_auth = request.cookies.get(ACCESS_COOKIE) or request.cookies.get(REFRESH_COOKIE)
+            if cookie_auth:
+                header = request.headers.get("x-csrf-token")
+                cookie = request.cookies.get(CSRF_COOKIE)
+                if not header or not cookie or header != cookie:
+                    return JSONResponse(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        content={"message": "CSRF token missing or invalid"},
+                    )
+    return await call_next(request)
 
 
 @app.middleware("http")

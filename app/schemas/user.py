@@ -60,7 +60,8 @@ class TokenResponse(BaseModel):
 
 
 class RefreshTokenRequest(BaseModel):
-    refresh_token: str
+    # Optional: browsers send the refresh token via httpOnly cookie instead.
+    refresh_token: str | None = None
 
 
 class MessageResponse(BaseModel):

@@ -2,11 +2,12 @@ import uuid
 from urllib.parse import urlencode
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.cookies import REFRESH_COOKIE, clear_auth_cookies, set_auth_cookies
 from app.core.limiter import limiter
 from app.core.logging import logger
 from app.core.security import (
@@ -82,7 +83,9 @@ def signup(payload: UserSignup, request: Request, db: Session = Depends(get_db))
 
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit(settings.RATE_LIMIT_AUTH)
-def login(payload: UserLogin, request: Request, db: Session = Depends(get_db)) -> TokenResponse:
+def login(
+    payload: UserLogin, request: Request, response: Response, db: Session = Depends(get_db)
+) -> TokenResponse:
     user = authenticate_user(db, payload.email, payload.password)
     if not user:
         raise HTTPException(
@@ -93,13 +96,21 @@ def login(payload: UserLogin, request: Request, db: Session = Depends(get_db)) -
 
     record_action(db, "user.login", user_id=user.id, ip_address=request.client.host if request.client else None)
     db.commit()
-    return _issue_tokens(user)
+    tokens = _issue_tokens(user)
+    set_auth_cookies(response, tokens.access_token, tokens.refresh_token)
+    return tokens
 
 
 @router.post("/refresh", response_model=TokenResponse)
-def refresh(payload: RefreshTokenRequest, db: Session = Depends(get_db)) -> TokenResponse:
+def refresh(
+    request: Request, response: Response, db: Session = Depends(get_db), payload: RefreshTokenRequest | None = None
+) -> TokenResponse:
+    # Prefer the httpOnly refresh cookie (browser); accept a body token for API clients.
+    token = (payload.refresh_token if payload else None) or request.cookies.get(REFRESH_COOKIE)
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No refresh token provided")
     try:
-        subject = decode_token(payload.refresh_token, expected_type="refresh")
+        subject = decode_token(token, expected_type="refresh")
     except InvalidTokenError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired refresh token"
@@ -109,13 +120,14 @@ def refresh(payload: RefreshTokenRequest, db: Session = Depends(get_db)) -> Toke
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
-    return _issue_tokens(user)
+    tokens = _issue_tokens(user)
+    set_auth_cookies(response, tokens.access_token, tokens.refresh_token)
+    return tokens
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-def logout() -> None:
-    # Stateless JWTs: the client discards its tokens. Present for API symmetry
-    # and as the hook point for a future token-blocklist implementation.
+def logout(response: Response) -> None:
+    clear_auth_cookies(response)
     return None
 
 
@@ -256,9 +268,9 @@ def google_callback(code: str, state: str, db: Session = Depends(get_db)) -> Red
     user = get_or_create_google_user(db, email=email, full_name=profile.get("name", email))
     tokens = _issue_tokens(user)
     record_action(db, "user.login.google", user_id=user.id)
+    db.commit()
 
-    redirect_url = (
-        f"{settings.FRONTEND_URL}/oauth/callback"
-        f"?access_token={tokens.access_token}&refresh_token={tokens.refresh_token}"
-    )
-    return RedirectResponse(redirect_url)
+    # Set auth via httpOnly cookies on the redirect — no tokens in the URL.
+    redirect = RedirectResponse(f"{settings.FRONTEND_URL}/app")
+    set_auth_cookies(redirect, tokens.access_token, tokens.refresh_token)
+    return redirect

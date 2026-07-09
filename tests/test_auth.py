@@ -109,3 +109,44 @@ def test_change_password_flow(client):
     ok = client.post("/api/v1/users/me/password", headers=headers, json={"current_password": "SuperSecret123", "new_password": "BrandNew123"})
     assert ok.status_code == 200
     assert client.post("/api/v1/auth/login", json={"email": "pw@example.com", "password": "BrandNew123"}).status_code == 200
+
+
+def test_cookie_auth_and_csrf(client):
+    client.post("/api/v1/auth/signup", json={"email": "cookie@example.com", "full_name": "C", "password": "SuperSecret123"})
+    login = client.post("/api/v1/auth/login", json={"email": "cookie@example.com", "password": "SuperSecret123"})
+    assert login.status_code == 200
+    assert client.cookies.get("iq_access")  # httpOnly access cookie set
+    csrf = client.cookies.get("iq_csrf")
+    assert csrf
+
+    # Cookie-authenticated GET works without an Authorization header.
+    me = client.get("/api/v1/users/me")
+    assert me.status_code == 200
+    assert me.json()["email"] == "cookie@example.com"
+
+    # Cookie-auth state-changing request without a CSRF header is rejected.
+    assert client.post("/api/v1/chats", json={"title": "x"}).status_code == 403
+    # With the matching CSRF header it succeeds.
+    ok = client.post("/api/v1/chats", json={"title": "x"}, headers={"X-CSRF-Token": csrf})
+    assert ok.status_code == 201
+
+
+def test_logout_clears_cookies(client):
+    client.post("/api/v1/auth/signup", json={"email": "lo@example.com", "full_name": "L", "password": "SuperSecret123"})
+    client.post("/api/v1/auth/login", json={"email": "lo@example.com", "password": "SuperSecret123"})
+    csrf = client.cookies.get("iq_csrf")
+    out = client.post("/api/v1/auth/logout", headers={"X-CSRF-Token": csrf})
+    assert out.status_code == 204
+    # cookie cleared -> subsequent cookie-only request is unauthorized
+    client.cookies.clear()
+    assert client.get("/api/v1/users/me").status_code == 401
+
+
+def test_refresh_via_cookie(client):
+    client.post("/api/v1/auth/signup", json={"email": "rf@example.com", "full_name": "R", "password": "SuperSecret123"})
+    client.post("/api/v1/auth/login", json={"email": "rf@example.com", "password": "SuperSecret123"})
+    csrf = client.cookies.get("iq_csrf")
+    # No body — refresh token comes from the cookie.
+    r = client.post("/api/v1/auth/refresh", headers={"X-CSRF-Token": csrf})
+    assert r.status_code == 200
+    assert "access_token" in r.json()
