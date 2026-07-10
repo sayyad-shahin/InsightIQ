@@ -50,16 +50,22 @@ export function downloadReportMarkdown(report: ReportDetail): void {
   URL.revokeObjectURL(url);
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+}
+
 export function printReport(report: ReportDetail): void {
   const win = window.open("", "_blank", "width=800,height=1000");
   if (!win) return;
-  const html = reportToMarkdown(report)
+  // Escape content first (escapeHtml leaves markdown structural chars like # and -),
+  // then promote headings/list items so injected markup can't execute.
+  const html = escapeHtml(reportToMarkdown(report))
     .replace(/^# (.*)$/gm, "<h1>$1</h1>")
     .replace(/^## (.*)$/gm, "<h2>$1</h2>")
     .replace(/^- (.*)$/gm, "<li>$1</li>")
     .replace(/\n\n/g, "<br/>");
   win.document.write(
-    `<!doctype html><html><head><title>${report.title}</title><style>body{font-family:sans-serif;max-width:720px;margin:40px auto;padding:0 20px;color:#111}h1{font-size:24px}h2{font-size:16px;margin-top:20px}li{margin:4px 0}</style></head><body>${html}</body></html>`,
+    `<!doctype html><html><head><title>${escapeHtml(report.title)}</title><style>body{font-family:sans-serif;max-width:720px;margin:40px auto;padding:0 20px;color:#111}h1{font-size:24px}h2{font-size:16px;margin-top:20px}li{margin:4px 0}</style></head><body>${html}</body></html>`,
   );
   win.document.close();
   win.focus();
