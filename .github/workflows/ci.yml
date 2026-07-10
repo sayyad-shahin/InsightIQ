@@ -29,13 +29,13 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run tests
-        # Suite runs on in-memory SQLite with eager Celery — no external services.
+        # Suite runs on in-memory SQLite with eager Celery (no external services).
         env:
-          SECRET_KEY: ci-secret-key-not-for-production-0123456789
-          DATABASE_URL: sqlite+pysqlite:///:memory:
+          SECRET_KEY: "ci-secret-key-not-for-production-0123456789"
+          DATABASE_URL: "sqlite+pysqlite:///:memory:"
           CELERY_TASK_ALWAYS_EAGER: "1"
-          CELERY_BROKER_URL: memory://
-          CELERY_RESULT_BACKEND: cache+memory://
+          CELERY_BROKER_URL: "memory://"
+          CELERY_RESULT_BACKEND: "cache+memory://"
         run: pytest -q
 
   frontend:
