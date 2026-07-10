@@ -11,6 +11,8 @@ entries; ``invalidate_dataset`` additionally purges stale keys eagerly.
 from __future__ import annotations
 
 import json
+import time
+from collections import OrderedDict
 from typing import Any
 
 from app.core.config import settings
@@ -18,7 +20,41 @@ from app.core.logging import logger
 
 _client: Any = None
 _unavailable = False
-_memory: dict[str, str] = {}
+
+
+class _BoundedTTLCache:
+    """In-process fallback cache: bounded size (LRU) + per-entry TTL. Never grows unbounded."""
+
+    def __init__(self, max_entries: int) -> None:
+        self._store: OrderedDict[str, tuple[float, str]] = OrderedDict()
+        self._max = max(1, max_entries)
+
+    def get(self, key: str) -> str | None:
+        item = self._store.get(key)
+        if item is None:
+            return None
+        expires_at, value = item
+        if expires_at < time.monotonic():
+            self._store.pop(key, None)
+            return None
+        self._store.move_to_end(key)  # LRU touch
+        return value
+
+    def set(self, key: str, value: str, ttl: int) -> None:
+        self._store[key] = (time.monotonic() + ttl, value)
+        self._store.move_to_end(key)
+        while len(self._store) > self._max:
+            self._store.popitem(last=False)  # evict least-recently-used
+
+    def delete_prefix(self, prefix: str) -> None:
+        for k in [k for k in self._store if k.startswith(prefix)]:
+            self._store.pop(k, None)
+
+    def __len__(self) -> int:
+        return len(self._store)
+
+
+_memory = _BoundedTTLCache(settings.CACHE_MEMORY_MAX_ENTRIES)
 
 
 def _redis():
@@ -56,16 +92,17 @@ def cache_get(key: str) -> Any | None:
         return None
 
 
-def cache_set(key: str, value: Any, ttl: int = 900) -> None:
+def cache_set(key: str, value: Any, ttl: int | None = None) -> None:
+    ttl = ttl if ttl is not None else settings.CACHE_TTL_SECONDS
     data = json.dumps(value, default=str)
     client = _redis()
     try:
         if client:
             client.setex(key, ttl, data)
         else:
-            _memory[key] = data
+            _memory.set(key, data, ttl)
     except Exception:  # noqa: BLE001
-        _memory[key] = data
+        _memory.set(key, data, ttl)
 
 
 def invalidate_dataset(dataset_id: str) -> None:
@@ -78,8 +115,7 @@ def invalidate_dataset(dataset_id: str) -> None:
                 client.delete(k)
     except Exception:  # noqa: BLE001
         pass
-    for k in [k for k in _memory if k.startswith(prefix)]:
-        _memory.pop(k, None)
+    _memory.delete_prefix(prefix)
 
 
 def dataset_key(kind: str, dataset_id: str, updated_at: Any, *parts: str) -> str:

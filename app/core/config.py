@@ -71,14 +71,49 @@ class Settings(BaseSettings):
     RATE_LIMIT_AUTH: str = "10/minute"
     RATE_LIMIT_UPLOAD: str = "10/minute"
     RATE_LIMIT_CHAT: str = "20/minute"
+    RATE_LIMIT_COMPUTE: str = "30/minute"  # heavy pandas endpoints (analytics/stats/clean/forecast/report)
     # Backing store for rate-limit counters. Leave empty for in-process memory
     # (single worker / tests); set to the Redis URL so limits are shared across
     # gunicorn workers in production.
     RATE_LIMIT_STORAGE_URI: str = ""
 
+    # --- Monitoring (Sentry) — no-op when DSN is empty ---
+    SENTRY_DSN: str = ""
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.1
+
+    # --- Caching ---
+    CACHE_TTL_SECONDS: int = 900
+    CACHE_MEMORY_MAX_ENTRIES: int = 512  # bound the in-process fallback cache
+
+    # --- Limits ---
+    MAX_PREFERENCES_BYTES: int = 64 * 1024  # reject oversized settings.preferences payloads
+
+    # --- Auth cookies ---
+    COOKIE_SAMESITE: str = "lax"  # lax | strict | none  (use "none" for cross-site SPA+API)
+    COOKIE_SECURE: bool | None = None  # None -> auto (secure in production); override explicitly if needed
+    COOKIE_DOMAIN: str = ""  # empty -> host-only cookie (correct for localhost)
+    COOKIE_PATH: str = "/"
+
+    # --- Security headers (set on every response; toggle/override per deployment) ---
+    SECURITY_HEADERS_ENABLED: bool = True
+    SECURITY_HSTS: str = "max-age=63072000; includeSubDomains"  # only sent in production
+    SECURITY_CSP: str = (
+        "default-src 'self'; img-src 'self' data: blob:; "
+        "style-src 'self' 'unsafe-inline'; script-src 'self'; "
+        "connect-src 'self'; font-src 'self' data:; frame-ancestors 'none'; base-uri 'self'"
+    )
+    SECURITY_FRAME_OPTIONS: str = "DENY"
+    SECURITY_CONTENT_TYPE_OPTIONS: str = "nosniff"
+    SECURITY_REFERRER_POLICY: str = "strict-origin-when-cross-origin"
+    SECURITY_PERMISSIONS_POLICY: str = "geolocation=(), microphone=(), camera=()"
+
     @property
     def is_production(self) -> bool:
         return self.APP_ENV.lower() == "production"
+
+    @property
+    def cookie_secure(self) -> bool:
+        return self.is_production if self.COOKIE_SECURE is None else self.COOKIE_SECURE
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod

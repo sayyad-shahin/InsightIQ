@@ -19,6 +19,7 @@ os.environ.setdefault("RATE_LIMIT_DEFAULT", "100000/minute")
 os.environ.setdefault("RATE_LIMIT_AUTH", "100000/minute")
 os.environ.setdefault("RATE_LIMIT_CHAT", "100000/minute")
 os.environ.setdefault("RATE_LIMIT_UPLOAD", "100000/minute")
+os.environ.setdefault("RATE_LIMIT_COMPUTE", "100000/minute")
 # Run Celery tasks inline so upload/forecast flows complete within a request.
 # In-memory broker/backend avoids any Redis dependency during tests.
 os.environ.setdefault("CELERY_TASK_ALWAYS_EAGER", "1")

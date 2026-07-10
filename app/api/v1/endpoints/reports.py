@@ -1,12 +1,14 @@
 import io
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.v1.deps import get_current_user
+from app.core.config import settings
+from app.core.limiter import limiter
 from app.core.logging import logger
 from app.db.session import get_db
 from app.models.report import Report
@@ -20,7 +22,9 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 
 
 @router.post("", response_model=ReportDetail, status_code=status.HTTP_202_ACCEPTED)
+@limiter.limit(settings.RATE_LIMIT_COMPUTE)
 def create_report(
+    request: Request,
     payload: ReportCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),

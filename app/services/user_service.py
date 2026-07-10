@@ -18,6 +18,8 @@ def get_user_by_id(db: Session, user_id: uuid.UUID) -> User | None:
 
 
 def create_user(db: Session, payload: UserSignup) -> User:
+    # Flush (not commit) so the user + settings + the caller's audit row commit
+    # atomically in one transaction at the endpoint boundary.
     user = User(
         email=payload.email.lower(),
         full_name=payload.full_name,
@@ -26,10 +28,8 @@ def create_user(db: Session, payload: UserSignup) -> User:
     )
     db.add(user)
     db.flush()
-
     db.add(UserSetting(user_id=user.id))
-    db.commit()
-    db.refresh(user)
+    db.flush()
     return user
 
 
@@ -48,8 +48,7 @@ def get_or_create_google_user(db: Session, email: str, full_name: str) -> User:
     db.add(user)
     db.flush()
     db.add(UserSetting(user_id=user.id))
-    db.commit()
-    db.refresh(user)
+    db.flush()
     return user
 
 
@@ -63,9 +62,10 @@ def authenticate_user(db: Session, email: str, password: str) -> User | None:
 
 
 def set_password(db: Session, user: User, new_password: str) -> None:
+    # Flush only; the caller commits (atomically with its audit row).
     user.hashed_password = hash_password(new_password)
     db.add(user)
-    db.commit()
+    db.flush()
 
 
 class InvalidCurrentPasswordError(Exception):

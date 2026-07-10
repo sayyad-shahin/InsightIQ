@@ -78,7 +78,15 @@ def upload_dataset(
         status=DatasetStatus.UPLOADED,
     )
     db.add(dataset)
-    db.commit()
+    db.flush()
+    record_action(
+        db,
+        "dataset.upload",
+        user_id=current_user.id,
+        metadata={"dataset_id": str(dataset.id), "filename": file.filename},
+        ip_address=request.client.host if request.client else None,
+    )
+    db.commit()  # dataset row + audit row commit together
     db.refresh(dataset)
 
     # Queue async profiling; if the broker is unavailable, don't fail the upload —
@@ -87,15 +95,6 @@ def upload_dataset(
         process_dataset.delay(str(dataset.id))
     except Exception as exc:  # noqa: BLE001 - broker/connection errors shouldn't 500 the upload
         logger.error(f"Failed to enqueue processing for dataset {dataset.id}: {exc}")
-
-    record_action(
-        db,
-        "dataset.upload",
-        user_id=current_user.id,
-        metadata={"dataset_id": str(dataset.id), "filename": file.filename},
-        ip_address=request.client.host if request.client else None,
-    )
-    db.commit()
 
     return dataset
 
@@ -164,7 +163,9 @@ def preview_dataset(
 
 
 @router.get("/{dataset_id}/statistics")
+@limiter.limit(settings.RATE_LIMIT_COMPUTE)
 def get_statistics(
+    request: Request,
     dataset_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -180,7 +181,9 @@ def get_statistics(
 
 
 @router.get("/{dataset_id}/analytics")
+@limiter.limit(settings.RATE_LIMIT_COMPUTE)
 def get_analytics(
+    request: Request,
     dataset_id: uuid.UUID,
     measure: str | None = Query(default=None),
     dimension: str | None = Query(default=None),
@@ -253,10 +256,10 @@ def duplicate_dataset(
         quality_report=source.quality_report,
     )
     db.add(duplicate)
-    db.commit()
-    db.refresh(duplicate)
+    db.flush()
     record_action(db, "dataset.duplicate", user_id=current_user.id, metadata={"source_id": str(source.id)})
     db.commit()
+    db.refresh(duplicate)
     return duplicate
 
 
@@ -284,7 +287,9 @@ def _reprofile(dataset: Dataset, df) -> None:
 
 
 @router.post("/{dataset_id}/clean/preview", response_model=CleaningPreviewResponse)
+@limiter.limit(settings.RATE_LIMIT_COMPUTE)
 def preview_cleaning(
+    request: Request,
     dataset_id: uuid.UUID,
     operations: CleaningOperations,
     current_user: User = Depends(get_current_user),
@@ -303,7 +308,9 @@ def preview_cleaning(
 
 
 @router.post("/{dataset_id}/clean/apply", response_model=DatasetDetail)
+@limiter.limit(settings.RATE_LIMIT_COMPUTE)
 def apply_cleaning(
+    request: Request,
     dataset_id: uuid.UUID,
     operations: CleaningOperations,
     current_user: User = Depends(get_current_user),
@@ -327,13 +334,13 @@ def apply_cleaning(
     dataset.source_type = SourceType.CSV
     _reprofile(dataset, cleaned)
     db.add(dataset)
-    db.commit()
-    db.refresh(dataset)
-    invalidate_dataset(str(dataset.id))
+    db.flush()
     record_action(
         db, "dataset.clean", user_id=current_user.id, metadata={"dataset_id": str(dataset.id), **summary}
     )
-    db.commit()
+    db.commit()  # dataset update + audit row commit together
+    db.refresh(dataset)
+    invalidate_dataset(str(dataset.id))
     return dataset
 
 

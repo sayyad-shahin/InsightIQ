@@ -14,10 +14,12 @@ from app.core.config import settings
 from app.core.cookies import ACCESS_COOKIE, CSRF_COOKIE, REFRESH_COOKIE
 from app.core.limiter import limiter
 from app.core.logging import configure_logging, logger
+from app.core.monitoring import init_sentry
 
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS", "TRACE"}
 
 configure_logging()
+init_sentry()
 
 
 @asynccontextmanager
@@ -48,6 +50,24 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    """Attach configurable security headers to every response."""
+    response = await call_next(request)
+    if settings.SECURITY_HEADERS_ENABLED:
+        h = response.headers
+        h.setdefault("X-Content-Type-Options", settings.SECURITY_CONTENT_TYPE_OPTIONS)
+        h.setdefault("X-Frame-Options", settings.SECURITY_FRAME_OPTIONS)
+        h.setdefault("Referrer-Policy", settings.SECURITY_REFERRER_POLICY)
+        h.setdefault("Permissions-Policy", settings.SECURITY_PERMISSIONS_POLICY)
+        if settings.SECURITY_CSP:
+            h.setdefault("Content-Security-Policy", settings.SECURITY_CSP)
+        # HSTS only over HTTPS (production) to avoid breaking local http.
+        if settings.is_production and settings.SECURITY_HSTS:
+            h.setdefault("Strict-Transport-Security", settings.SECURITY_HSTS)
+    return response
 
 
 @app.middleware("http")

@@ -72,12 +72,6 @@ def copy_dataset_file(user_id: uuid.UUID, source_path: str) -> Path:
     return destination_path
 
 
-def report_output_path(report_id: uuid.UUID) -> Path:
-    path = Path(settings.REPORT_DIR)
-    path.mkdir(parents=True, exist_ok=True)
-    return path / f"{report_id}.pdf"
-
-
 def delete_file(path: str | None) -> None:
     if not path:
         return

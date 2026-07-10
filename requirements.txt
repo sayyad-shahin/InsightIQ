@@ -26,6 +26,7 @@ celery==5.4.0
 # --- Rate limiting / logging / resilience ---
 slowapi==0.1.9
 loguru==0.7.2
+sentry-sdk[fastapi]==2.18.0
 tenacity==9.0.0
 
 # --- Analytics / file parsing ---

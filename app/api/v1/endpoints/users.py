@@ -94,14 +94,13 @@ def update_user_role(
 
     target.role = payload.role
     db.add(target)
-    db.commit()
-    db.refresh(target)
-
+    db.flush()
     record_action(
         db,
         "user.role_updated",
         user_id=current_user.id,
         metadata={"target_user_id": str(user_id), "new_role": payload.role.value},
     )
-    db.commit()
+    db.commit()  # role change + audit row commit together
+    db.refresh(target)
     return target
