@@ -17,12 +17,36 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 const FEATURES = [
-  { icon: Database, title: "Any data source", desc: "CSV, Excel, PDF, or SQL. Drag, drop, and we handle the rest — parsing, profiling, and quality checks." },
-  { icon: Bot, title: "Chat with your data", desc: "Ask questions in plain English. Get answers, tables, and charts powered by Gemini." },
-  { icon: TrendingUp, title: "Forecasting that ships", desc: "Predict revenue and demand with ML models — scikit-learn and Prophet, no code required." },
-  { icon: BarChart3, title: "Interactive analytics", desc: "Zoom, hover, and export beautiful Plotly charts. Every insight is one click away." },
-  { icon: FileText, title: "Board-ready reports", desc: "Turn a dataset into a shareable executive summary in seconds." },
-  { icon: Shield, title: "Enterprise security", desc: "JWT auth, role-based access, audit logs, and rate limiting built in from day one." },
+  {
+    icon: Database,
+    title: "Any data source",
+    desc: "CSV, Excel, PDF, or SQL. Drag, drop, and we handle the rest — parsing, profiling, and quality checks.",
+  },
+  {
+    icon: Bot,
+    title: "Chat with your data",
+    desc: "Ask questions in plain English. Get answers, tables, and charts powered by Gemini.",
+  },
+  {
+    icon: TrendingUp,
+    title: "Forecasting that ships",
+    desc: "Predict revenue and demand with ML models — scikit-learn and Prophet, no code required.",
+  },
+  {
+    icon: BarChart3,
+    title: "Interactive analytics",
+    desc: "Zoom, hover, and export beautiful Plotly charts. Every insight is one click away.",
+  },
+  {
+    icon: FileText,
+    title: "Board-ready reports",
+    desc: "Turn a dataset into a shareable executive summary in seconds.",
+  },
+  {
+    icon: Shield,
+    title: "Enterprise security",
+    desc: "JWT auth, role-based access, audit logs, and rate limiting built in from day one.",
+  },
 ];
 
 const STATS = [
@@ -45,9 +69,15 @@ export default function LandingPage() {
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <Logo />
           <nav className="hidden items-center gap-8 text-sm font-medium text-muted-foreground md:flex">
-            <a href="#features" className="transition hover:text-foreground">Features</a>
-            <a href="#stats" className="transition hover:text-foreground">Why InsightIQ</a>
-            <Link to="/login" className="transition hover:text-foreground">Sign in</Link>
+            <a href="#features" className="transition hover:text-foreground">
+              Features
+            </a>
+            <a href="#stats" className="transition hover:text-foreground">
+              Why InsightIQ
+            </a>
+            <Link to="/login" className="transition hover:text-foreground">
+              Sign in
+            </Link>
           </nav>
           <div className="flex items-center gap-2">
             <ThemeToggle />
@@ -63,7 +93,11 @@ export default function LandingPage() {
         <div className="pointer-events-none absolute inset-0 bg-mesh opacity-70" />
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
         <div className="relative mx-auto max-w-6xl px-4 pb-20 pt-20 text-center sm:px-6 sm:pt-28">
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
             <Badge variant="outline" className="mb-6 gap-1.5 border-border bg-card/60 py-1 backdrop-blur">
               <Sparkles className="size-3.5 text-primary" />
               Introducing AI-native decision intelligence
@@ -227,8 +261,12 @@ export default function LandingPage() {
           <Logo />
           <p>© {new Date().getFullYear()} InsightIQ. Crafted with care.</p>
           <div className="flex gap-6">
-            <a href="#" className="transition hover:text-foreground">Privacy</a>
-            <a href="#" className="transition hover:text-foreground">Terms</a>
+            <a href="#" className="transition hover:text-foreground">
+              Privacy
+            </a>
+            <a href="#" className="transition hover:text-foreground">
+              Terms
+            </a>
           </div>
         </div>
       </footer>

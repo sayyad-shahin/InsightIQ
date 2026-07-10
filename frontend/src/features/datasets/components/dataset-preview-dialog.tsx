@@ -1,13 +1,7 @@
 import { AlertCircle, CheckCircle2, Table2 } from "lucide-react";
 import { PlotlyChart } from "@/components/charts/plotly-chart";
 import { EmptyState } from "@/components/shared/empty-state";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -76,7 +70,11 @@ export function DatasetPreviewDialog({ dataset, onOpenChange }: Props) {
                 </table>
               </ScrollArea>
             ) : (
-              <EmptyState icon={Table2} title="Preview unavailable" description="This dataset can't be previewed." />
+              <EmptyState
+                icon={Table2}
+                title="Preview unavailable"
+                description="This dataset can't be previewed."
+              />
             )}
           </TabsContent>
 
@@ -91,7 +89,10 @@ export function DatasetPreviewDialog({ dataset, onOpenChange }: Props) {
                   <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-3">
                     <MiniStat label="Rows" value={formatNumber(statsQ.data.row_count)} />
                     <MiniStat label="Columns" value={String(statsQ.data.column_count)} />
-                    <MiniStat label="Numeric cols" value={String(Object.keys(statsQ.data.statistics).length)} />
+                    <MiniStat
+                      label="Numeric cols"
+                      value={String(Object.keys(statsQ.data.statistics).length)}
+                    />
                   </div>
                 </div>
 
@@ -168,7 +169,11 @@ export function DatasetPreviewDialog({ dataset, onOpenChange }: Props) {
                 />
               </div>
             ) : (
-              <EmptyState icon={Table2} title="Not enough numeric columns" description="Correlation needs at least two numeric columns." />
+              <EmptyState
+                icon={Table2}
+                title="Not enough numeric columns"
+                description="Correlation needs at least two numeric columns."
+              />
             )}
           </TabsContent>
         </Tabs>
@@ -219,9 +224,14 @@ function DistributionBars({ dist }: { dist: Distribution }) {
         <div key={i} className="flex items-center gap-2">
           <span className="w-16 shrink-0 truncate text-xs text-muted-foreground">{b.label}</span>
           <div className="h-3 flex-1 overflow-hidden rounded-full bg-muted">
-            <div className="h-full rounded-full bg-brand-gradient" style={{ width: `${(b.count / max) * 100}%` }} />
+            <div
+              className="h-full rounded-full bg-brand-gradient"
+              style={{ width: `${(b.count / max) * 100}%` }}
+            />
           </div>
-          <span className="w-8 shrink-0 text-right text-xs tabular-nums text-muted-foreground">{b.count}</span>
+          <span className="w-8 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+            {b.count}
+          </span>
         </div>
       ))}
     </div>

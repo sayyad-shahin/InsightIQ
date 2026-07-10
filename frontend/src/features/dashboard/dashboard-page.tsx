@@ -47,8 +47,7 @@ export default function DashboardPage() {
   const forecasts = forecastsQ.data ?? [];
   const reports = reportsQ.data ?? [];
   const chats = chatsQ.data ?? [];
-  const loading =
-    datasetsQ.isLoading || forecastsQ.isLoading || reportsQ.isLoading || chatsQ.isLoading;
+  const loading = datasetsQ.isLoading || forecastsQ.isLoading || reportsQ.isLoading || chatsQ.isLoading;
 
   const activity = buildActivity(datasets, forecasts, reports, chats);
 
@@ -89,10 +88,34 @@ export default function DashboardPage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiCard index={0} label="Datasets" value={formatNumber(statsQ.data?.datasets ?? datasets.length)} icon={Database} spark={dailySpark(datasets)} />
-          <KpiCard index={1} label="Conversations" value={formatNumber(statsQ.data?.chats ?? chats.length)} icon={Bot} spark={dailySpark(chats)} />
-          <KpiCard index={2} label="Forecasts" value={formatNumber(statsQ.data?.forecasts ?? forecasts.length)} icon={TrendingUp} spark={dailySpark(forecasts)} />
-          <KpiCard index={3} label="Reports" value={formatNumber(statsQ.data?.reports ?? reports.length)} icon={FileText} spark={dailySpark(reports)} />
+          <KpiCard
+            index={0}
+            label="Datasets"
+            value={formatNumber(statsQ.data?.datasets ?? datasets.length)}
+            icon={Database}
+            spark={dailySpark(datasets)}
+          />
+          <KpiCard
+            index={1}
+            label="Conversations"
+            value={formatNumber(statsQ.data?.chats ?? chats.length)}
+            icon={Bot}
+            spark={dailySpark(chats)}
+          />
+          <KpiCard
+            index={2}
+            label="Forecasts"
+            value={formatNumber(statsQ.data?.forecasts ?? forecasts.length)}
+            icon={TrendingUp}
+            spark={dailySpark(forecasts)}
+          />
+          <KpiCard
+            index={3}
+            label="Reports"
+            value={formatNumber(statsQ.data?.reports ?? reports.length)}
+            icon={FileText}
+            spark={dailySpark(reports)}
+          />
         </div>
       )}
 
@@ -110,7 +133,16 @@ export default function DashboardPage() {
             {loading ? (
               <Skeleton className="h-72 w-full rounded-xl" />
             ) : datasets.length === 0 ? (
-              <EmptyState icon={Database} title="No data yet" description="Upload your first dataset to see trends here." action={<Button variant="gradient" size="sm" onClick={() => navigate("/app/datasets?upload=1")}><Plus className="size-4" /> Upload dataset</Button>} />
+              <EmptyState
+                icon={Database}
+                title="No data yet"
+                description="Upload your first dataset to see trends here."
+                action={
+                  <Button variant="gradient" size="sm" onClick={() => navigate("/app/datasets?upload=1")}>
+                    <Plus className="size-4" /> Upload dataset
+                  </Button>
+                }
+              />
             ) : (
               <IngestionChart datasets={datasets} />
             )}
@@ -131,7 +163,11 @@ export default function DashboardPage() {
             {loading ? (
               <Skeleton className="h-64 w-full rounded-xl" />
             ) : datasets.filter((d) => d.row_count).length === 0 ? (
-              <EmptyState icon={Rows3} title="Nothing to chart yet" description="Processed datasets will appear here." />
+              <EmptyState
+                icon={Rows3}
+                title="Nothing to chart yet"
+                description="Processed datasets will appear here."
+              />
             ) : (
               <RowsChart datasets={datasets} />
             )}
@@ -203,7 +239,11 @@ function AiInsightsPanel({ datasets, loading }: { datasets: Dataset[]; loading: 
         "Ask the AI assistant to summarize your latest upload.",
         "Generate a forecast to predict next-period trends.",
       ]
-    : ["Upload a dataset to unlock AI-powered insights.", "Chat with your data in plain English.", "Forecast trends with one click."];
+    : [
+        "Upload a dataset to unlock AI-powered insights.",
+        "Chat with your data in plain English.",
+        "Forecast trends with one click.",
+      ];
 
   return (
     <Card className="relative overflow-hidden">
@@ -252,12 +292,41 @@ interface ActivityItem {
   tone: string;
 }
 
-function buildActivity(datasets: Dataset[], forecasts: Forecast[], reports: Report[], chats: Chat[]): ActivityItem[] {
+function buildActivity(
+  datasets: Dataset[],
+  forecasts: Forecast[],
+  reports: Report[],
+  chats: Chat[],
+): ActivityItem[] {
   const items: ActivityItem[] = [
-    ...datasets.map((d) => ({ id: `d-${d.id}`, label: `Uploaded ${d.name}`, time: d.created_at, icon: Database, tone: "text-primary" })),
-    ...forecasts.map((f) => ({ id: `f-${f.id}`, label: `Forecast on ${f.target_column}`, time: f.created_at, icon: TrendingUp, tone: "text-success" })),
-    ...reports.map((r) => ({ id: `r-${r.id}`, label: `Report: ${r.title}`, time: r.created_at, icon: FileText, tone: "text-warning" })),
-    ...chats.map((c) => ({ id: `c-${c.id}`, label: `Chat: ${c.title}`, time: c.created_at, icon: Bot, tone: "text-brand-400" })),
+    ...datasets.map((d) => ({
+      id: `d-${d.id}`,
+      label: `Uploaded ${d.name}`,
+      time: d.created_at,
+      icon: Database,
+      tone: "text-primary",
+    })),
+    ...forecasts.map((f) => ({
+      id: `f-${f.id}`,
+      label: `Forecast on ${f.target_column}`,
+      time: f.created_at,
+      icon: TrendingUp,
+      tone: "text-success",
+    })),
+    ...reports.map((r) => ({
+      id: `r-${r.id}`,
+      label: `Report: ${r.title}`,
+      time: r.created_at,
+      icon: FileText,
+      tone: "text-warning",
+    })),
+    ...chats.map((c) => ({
+      id: `c-${c.id}`,
+      label: `Chat: ${c.title}`,
+      time: c.created_at,
+      icon: Bot,
+      tone: "text-brand-400",
+    })),
   ];
   return items.sort((a, b) => +new Date(b.time) - +new Date(a.time)).slice(0, 6);
 }
@@ -294,13 +363,17 @@ function ActivityTimeline({ activity, loading }: { activity: ActivityItem[]; loa
           <div className="relative space-y-1">
             {activity.map((item, i) => (
               <div key={item.id} className="relative flex gap-3 pb-4 last:pb-0">
-                {i < activity.length - 1 && <div className="absolute left-[15px] top-8 h-full w-px bg-border" />}
+                {i < activity.length - 1 && (
+                  <div className="absolute left-[15px] top-8 h-full w-px bg-border" />
+                )}
                 <div className="grid size-8 shrink-0 place-items-center rounded-full border border-border bg-card">
                   <item.icon className={`size-4 ${item.tone}`} />
                 </div>
                 <div className="min-w-0 flex-1 pt-1">
                   <p className="truncate text-sm">{item.label}</p>
-                  <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(item.time), { addSuffix: true })}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatDistanceToNow(new Date(item.time), { addSuffix: true })}
+                  </p>
                 </div>
               </div>
             ))}
@@ -375,7 +448,11 @@ function RecentReports({ reports, loading }: { reports: Report[]; loading: boole
             ))}
           </div>
         ) : recent.length === 0 ? (
-          <EmptyState icon={FileText} title="No reports yet" description="Generate a report from any dataset." />
+          <EmptyState
+            icon={FileText}
+            title="No reports yet"
+            description="Generate a report from any dataset."
+          />
         ) : (
           <div className="space-y-1">
             {recent.map((r) => (

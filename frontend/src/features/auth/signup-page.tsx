@@ -63,11 +63,24 @@ export default function SignupPage() {
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="name">Full name</Label>
-          <Input id="name" required placeholder="Ada Lovelace" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+          <Input
+            id="name"
+            required
+            placeholder="Ada Lovelace"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" required placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Input
+            id="email"
+            type="email"
+            required
+            placeholder="you@company.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="password">Password</Label>
@@ -115,7 +128,13 @@ export default function SignupPage() {
                 {RULES.map((r) => {
                   const ok = r.test(password);
                   return (
-                    <li key={r.label} className={cn("flex items-center gap-1.5 text-xs", ok ? "text-success" : "text-muted-foreground")}>
+                    <li
+                      key={r.label}
+                      className={cn(
+                        "flex items-center gap-1.5 text-xs",
+                        ok ? "text-success" : "text-muted-foreground",
+                      )}
+                    >
                       {ok ? <Check className="size-3" /> : <X className="size-3" />}
                       {r.label}
                     </li>
@@ -126,7 +145,13 @@ export default function SignupPage() {
           )}
         </div>
 
-        <Button type="submit" variant="gradient" size="lg" className="w-full" disabled={loading || !canSubmit}>
+        <Button
+          type="submit"
+          variant="gradient"
+          size="lg"
+          className="w-full"
+          disabled={loading || !canSubmit}
+        >
           {loading ? <Loader2 className="size-4 animate-spin" /> : null}
           Create account
         </Button>

@@ -56,13 +56,20 @@ export const ChatMarkdown = memo(function ChatMarkdown({ content }: { content: s
             </li>
           ),
           a: ({ children, href }) => (
-            <a href={href} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2">
+            <a
+              href={href}
+              target="_blank"
+              rel="noreferrer"
+              className="text-primary underline underline-offset-2"
+            >
               {children}
             </a>
           ),
           strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
           blockquote: ({ children }) => (
-            <blockquote className="my-3 border-l-2 border-primary/40 pl-3 text-muted-foreground">{children}</blockquote>
+            <blockquote className="my-3 border-l-2 border-primary/40 pl-3 text-muted-foreground">
+              {children}
+            </blockquote>
           ),
           table: ({ children }) => (
             <div className="my-3 overflow-x-auto rounded-lg border border-border">
@@ -70,7 +77,9 @@ export const ChatMarkdown = memo(function ChatMarkdown({ content }: { content: s
             </div>
           ),
           thead: ({ children }) => <thead className="bg-muted/50">{children}</thead>,
-          th: ({ children }) => <th className="border-b border-border px-3 py-2 text-left font-semibold">{children}</th>,
+          th: ({ children }) => (
+            <th className="border-b border-border px-3 py-2 text-left font-semibold">{children}</th>
+          ),
           td: ({ children }) => <td className="border-b border-border/50 px-3 py-1.5">{children}</td>,
           pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
           code: ({ className, children }) => {
@@ -78,7 +87,12 @@ export const ChatMarkdown = memo(function ChatMarkdown({ content }: { content: s
             return isBlock ? (
               <code className={className}>{children}</code>
             ) : (
-              <code className={cn("rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em] text-primary", className)}>
+              <code
+                className={cn(
+                  "rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em] text-primary",
+                  className,
+                )}
+              >
                 {children}
               </code>
             );

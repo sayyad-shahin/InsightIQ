@@ -1,14 +1,5 @@
 import { motion } from "framer-motion";
-import {
-  ArrowRight,
-  Database,
-  LogOut,
-  Moon,
-  Search,
-  Sun,
-  Upload,
-  type LucideIcon,
-} from "lucide-react";
+import { ArrowRight, Database, LogOut, Moon, Search, Sun, Upload, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -73,8 +64,20 @@ export function CommandPalette() {
       run: go(i.href),
     }));
     const actions: Command[] = [
-      { id: "upload", label: "Upload a dataset", icon: Upload, group: "Actions", run: go("/app/datasets?upload=1") },
-      { id: "new-dataset", label: "View datasets", icon: Database, group: "Actions", run: go("/app/datasets") },
+      {
+        id: "upload",
+        label: "Upload a dataset",
+        icon: Upload,
+        group: "Actions",
+        run: go("/app/datasets?upload=1"),
+      },
+      {
+        id: "new-dataset",
+        label: "View datasets",
+        icon: Database,
+        group: "Actions",
+        run: go("/app/datasets"),
+      },
       {
         id: "theme",
         label: `Switch to ${resolvedTheme === "dark" ? "light" : "dark"} mode`,

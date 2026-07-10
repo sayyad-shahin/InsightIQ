@@ -1,5 +1,15 @@
 import { formatDistanceToNow } from "date-fns";
-import { Activity, Bot, ChevronLeft, ChevronRight, Database, FileText, Server, TrendingUp, Users } from "lucide-react";
+import {
+  Activity,
+  Bot,
+  ChevronLeft,
+  ChevronRight,
+  Database,
+  FileText,
+  Server,
+  TrendingUp,
+  Users,
+} from "lucide-react";
 import { useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -40,15 +50,29 @@ export default function AdminPage() {
         <h2 className="text-lg font-semibold">System health</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Health label="Database" ok={!!stats.data?.services.database} />
-          <Health label="Redis / broker" ok={!!stats.data?.services.redis_configured} detail={stats.data?.services.celery_eager ? "eager mode" : undefined} />
-          <Health label="AI provider" ok={!!stats.data?.services.ai_configured} detail={stats.data?.services.ai_configured ? undefined : "not configured"} />
+          <Health
+            label="Redis / broker"
+            ok={!!stats.data?.services.redis_configured}
+            detail={stats.data?.services.celery_eager ? "eager mode" : undefined}
+          />
+          <Health
+            label="AI provider"
+            ok={!!stats.data?.services.ai_configured}
+            detail={stats.data?.services.ai_configured ? undefined : "not configured"}
+          />
           <Health label="Environment" ok neutral detail={stats.data?.services.environment} />
         </div>
         {stats.data && (
           <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5"><Server className="size-4" /> {stats.data.datasets.processing} processing</span>
-            <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5">{stats.data.datasets.errored} errored datasets</span>
-            <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5">{stats.data.users.new_this_week} new users / 7d</span>
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5">
+              <Server className="size-4" /> {stats.data.datasets.processing} processing
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5">
+              {stats.data.datasets.errored} errored datasets
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5">
+              {stats.data.users.new_this_week} new users / 7d
+            </span>
           </div>
         )}
       </section>
@@ -88,12 +112,18 @@ export default function AdminPage() {
                         </div>
                       </td>
                       <td className="hidden px-4 py-3 sm:table-cell">
-                        {u.is_active ? <Badge variant="success">Active</Badge> : <Badge variant="destructive">Disabled</Badge>}
+                        {u.is_active ? (
+                          <Badge variant="success">Active</Badge>
+                        ) : (
+                          <Badge variant="destructive">Disabled</Badge>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <select
                           value={u.role}
-                          onChange={(e) => updateRole.mutate({ userId: u.id, role: e.target.value as UserRole })}
+                          onChange={(e) =>
+                            updateRole.mutate({ userId: u.id, role: e.target.value as UserRole })
+                          }
                           className="h-8 rounded-lg border border-input bg-background px-2 text-sm capitalize outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
                           {(["admin", "analyst", "viewer"] as const).map((r) => (
@@ -135,18 +165,32 @@ export default function AdminPage() {
                   <span className="flex-1 truncate text-xs text-muted-foreground">
                     {log.ip_address ?? "—"} {log.user_id ? `· user ${log.user_id.slice(0, 8)}` : ""}
                   </span>
-                  <span className="shrink-0 text-xs text-muted-foreground">{formatDistanceToNow(new Date(log.created_at), { addSuffix: true })}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {formatDistanceToNow(new Date(log.created_at), { addSuffix: true })}
+                  </span>
                 </div>
               ))}
             </div>
           )}
         </div>
         <div className="flex items-center justify-end gap-2">
-          <Button variant="outline" size="icon-sm" onClick={() => setAuditPage((p) => Math.max(0, p - 1))} disabled={auditPage === 0} aria-label="Previous">
+          <Button
+            variant="outline"
+            size="icon-sm"
+            onClick={() => setAuditPage((p) => Math.max(0, p - 1))}
+            disabled={auditPage === 0}
+            aria-label="Previous"
+          >
             <ChevronLeft className="size-4" />
           </Button>
           <span className="text-sm text-muted-foreground">Page {auditPage + 1}</span>
-          <Button variant="outline" size="icon-sm" onClick={() => setAuditPage((p) => p + 1)} disabled={(audit.data ?? []).length < AUDIT_PAGE} aria-label="Next">
+          <Button
+            variant="outline"
+            size="icon-sm"
+            onClick={() => setAuditPage((p) => p + 1)}
+            disabled={(audit.data ?? []).length < AUDIT_PAGE}
+            aria-label="Next"
+          >
             <ChevronRight className="size-4" />
           </Button>
         </div>
@@ -155,24 +199,50 @@ export default function AdminPage() {
   );
 }
 
-function Stat({ label, value, icon: Icon, loading }: { label: string; value?: number; icon: LucideIcon; loading: boolean }) {
+function Stat({
+  label,
+  value,
+  icon: Icon,
+  loading,
+}: {
+  label: string;
+  value?: number;
+  icon: LucideIcon;
+  loading: boolean;
+}) {
   return (
     <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
       <Icon className="mb-2 size-5 text-primary" />
-      {loading ? <Skeleton className="h-7 w-12" /> : <p className="text-2xl font-bold tabular-nums">{value ?? 0}</p>}
+      {loading ? (
+        <Skeleton className="h-7 w-12" />
+      ) : (
+        <p className="text-2xl font-bold tabular-nums">{value ?? 0}</p>
+      )}
       <p className="text-xs text-muted-foreground">{label}</p>
     </div>
   );
 }
 
-function Health({ label, ok, neutral, detail }: { label: string; ok: boolean; neutral?: boolean; detail?: string }) {
+function Health({
+  label,
+  ok,
+  neutral,
+  detail,
+}: {
+  label: string;
+  ok: boolean;
+  neutral?: boolean;
+  detail?: string;
+}) {
   return (
     <div className="flex items-center justify-between rounded-2xl border border-border bg-card p-4 shadow-soft">
       <div>
         <p className="text-sm font-medium">{label}</p>
         {detail && <p className="text-xs capitalize text-muted-foreground">{detail}</p>}
       </div>
-      <span className={`size-2.5 rounded-full ${neutral ? "bg-primary" : ok ? "bg-success" : "bg-destructive"}`} />
+      <span
+        className={`size-2.5 rounded-full ${neutral ? "bg-primary" : ok ? "bg-success" : "bg-destructive"}`}
+      />
     </div>
   );
 }

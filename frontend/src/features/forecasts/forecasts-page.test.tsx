@@ -43,11 +43,20 @@ describe("ForecastsPage workflow", () => {
     vi.mocked(api.datasets.list).mockResolvedValue([makeDataset({ id: "d1", name: "sales.csv" })]);
     vi.mocked(api.datasets.get).mockResolvedValue({
       ...makeDataset({ id: "d1" }),
-      schema_snapshot: { columns: [{ name: "revenue", dtype: "int64" }, { name: "region", dtype: "object" }] },
+      schema_snapshot: {
+        columns: [
+          { name: "revenue", dtype: "int64" },
+          { name: "region", dtype: "object" },
+        ],
+      },
       quality_report: null,
     });
     vi.mocked(api.forecasts.list).mockResolvedValue([]);
-    vi.mocked(api.forecasts.create).mockResolvedValue({ ...doneForecast, status: "queued", result: null } as never);
+    vi.mocked(api.forecasts.create).mockResolvedValue({
+      ...doneForecast,
+      status: "queued",
+      result: null,
+    } as never);
     vi.mocked(api.forecasts.get).mockResolvedValue(doneForecast);
   });
 

@@ -4,13 +4,7 @@ import { ArrowRight, Eye, Sparkles, Undo2, Wand2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { useApplyCleaning, useUndoCleaning } from "@/features/datasets/hooks";
 import { api, ApiError } from "@/lib/api";
@@ -94,7 +88,10 @@ export function DataCleaningDialog({ dataset, onOpenChange }: Props) {
                 <select
                   value={ops.fill_strategy}
                   onChange={(e) => {
-                    setOps((p) => ({ ...p, fill_strategy: e.target.value as CleaningOperations["fill_strategy"] }));
+                    setOps((p) => ({
+                      ...p,
+                      fill_strategy: e.target.value as CleaningOperations["fill_strategy"],
+                    }));
                     previewMut.reset();
                   }}
                   className="h-9 rounded-lg border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"

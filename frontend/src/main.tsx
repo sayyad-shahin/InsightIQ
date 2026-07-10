@@ -19,8 +19,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             position="top-right"
             toastOptions={{
               classNames: {
-                toast:
-                  "!bg-card !text-card-foreground !border-border !shadow-soft-lg !rounded-xl",
+                toast: "!bg-card !text-card-foreground !border-border !shadow-soft-lg !rounded-xl",
               },
             }}
           />

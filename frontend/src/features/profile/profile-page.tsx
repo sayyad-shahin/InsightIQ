@@ -39,7 +39,10 @@ export default function ProfilePage() {
   // Bounded lists power only the recent-activity timeline (counts come from stats).
   const datasets = useQuery({ queryKey: ["datasets"], queryFn: () => api.datasets.list(10) });
   const chats = useQuery({ queryKey: ["chats"], queryFn: () => api.chats.list(10) });
-  const forecasts = useQuery({ queryKey: ["forecasts", "all"], queryFn: () => api.forecasts.list(undefined, 10) });
+  const forecasts = useQuery({
+    queryKey: ["forecasts", "all"],
+    queryFn: () => api.forecasts.list(undefined, 10),
+  });
   const reports = useQuery({ queryKey: ["reports"], queryFn: () => api.reports.list(10) });
 
   async function onAvatar(file?: File) {
@@ -57,7 +60,12 @@ export default function ProfilePage() {
     }
   }
 
-  const activity = buildActivity(datasets.data ?? [], forecasts.data ?? [], reports.data ?? [], chats.data ?? []);
+  const activity = buildActivity(
+    datasets.data ?? [],
+    forecasts.data ?? [],
+    reports.data ?? [],
+    chats.data ?? [],
+  );
 
   return (
     <div className="space-y-6">
@@ -78,7 +86,13 @@ export default function ProfilePage() {
             >
               {uploading ? <Loader2 className="size-4 animate-spin" /> : <Camera className="size-4" />}
             </button>
-            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => onAvatar(e.target.files?.[0])} />
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => onAvatar(e.target.files?.[0])}
+            />
           </div>
           <h2 className="mt-4 text-lg font-semibold">{user?.full_name}</h2>
           <p className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
@@ -106,9 +120,19 @@ export default function ProfilePage() {
         {/* Stats + activity */}
         <div className="space-y-6 lg:col-span-2">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <StatCard label="Datasets" value={stats.data?.datasets} loading={stats.isLoading} icon={Database} />
+            <StatCard
+              label="Datasets"
+              value={stats.data?.datasets}
+              loading={stats.isLoading}
+              icon={Database}
+            />
             <StatCard label="Chats" value={stats.data?.chats} loading={stats.isLoading} icon={Bot} />
-            <StatCard label="Forecasts" value={stats.data?.forecasts} loading={stats.isLoading} icon={TrendingUp} />
+            <StatCard
+              label="Forecasts"
+              value={stats.data?.forecasts}
+              loading={stats.isLoading}
+              icon={TrendingUp}
+            />
             <StatCard label="Reports" value={stats.data?.reports} loading={stats.isLoading} icon={FileText} />
           </div>
 
@@ -120,13 +144,17 @@ export default function ProfilePage() {
               <div className="space-y-1">
                 {activity.map((item, i) => (
                   <div key={item.id} className="relative flex gap-3 pb-4 last:pb-0">
-                    {i < activity.length - 1 && <div className="absolute left-[15px] top-8 h-full w-px bg-border" />}
+                    {i < activity.length - 1 && (
+                      <div className="absolute left-[15px] top-8 h-full w-px bg-border" />
+                    )}
                     <div className="grid size-8 shrink-0 place-items-center rounded-full border border-border bg-card">
                       <item.icon className={`size-4 ${item.tone}`} />
                     </div>
                     <div className="min-w-0 flex-1 pt-1">
                       <p className="truncate text-sm">{item.label}</p>
-                      <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(item.time), { addSuffix: true })}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(new Date(item.time), { addSuffix: true })}
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -139,11 +167,29 @@ export default function ProfilePage() {
   );
 }
 
-function StatCard({ label, value, loading, icon: Icon }: { label: string; value?: number; loading: boolean; icon: LucideIcon }) {
+function StatCard({
+  label,
+  value,
+  loading,
+  icon: Icon,
+}: {
+  label: string;
+  value?: number;
+  loading: boolean;
+  icon: LucideIcon;
+}) {
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border border-border bg-card p-4 shadow-soft">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="rounded-2xl border border-border bg-card p-4 shadow-soft"
+    >
       <Icon className="mb-2 size-5 text-primary" />
-      {loading ? <Skeleton className="h-7 w-12" /> : <p className="text-2xl font-bold tabular-nums">{formatNumber(value ?? 0)}</p>}
+      {loading ? (
+        <Skeleton className="h-7 w-12" />
+      ) : (
+        <p className="text-2xl font-bold tabular-nums">{formatNumber(value ?? 0)}</p>
+      )}
       <p className="text-xs text-muted-foreground">{label}</p>
     </motion.div>
   );
@@ -164,10 +210,34 @@ function buildActivity(
   chats: { id: string; title: string; created_at: string }[],
 ): ActivityItem[] {
   return [
-    ...datasets.map((d) => ({ id: `d-${d.id}`, label: `Uploaded ${d.name}`, time: d.created_at, icon: Database, tone: "text-primary" })),
-    ...forecasts.map((f) => ({ id: `f-${f.id}`, label: `Forecast on ${f.target_column}`, time: f.created_at, icon: TrendingUp, tone: "text-success" })),
-    ...reports.map((r) => ({ id: `r-${r.id}`, label: `Report: ${r.title}`, time: r.created_at, icon: FileText, tone: "text-warning" })),
-    ...chats.map((c) => ({ id: `c-${c.id}`, label: `Chat: ${c.title}`, time: c.created_at, icon: Bot, tone: "text-brand-400" })),
+    ...datasets.map((d) => ({
+      id: `d-${d.id}`,
+      label: `Uploaded ${d.name}`,
+      time: d.created_at,
+      icon: Database,
+      tone: "text-primary",
+    })),
+    ...forecasts.map((f) => ({
+      id: `f-${f.id}`,
+      label: `Forecast on ${f.target_column}`,
+      time: f.created_at,
+      icon: TrendingUp,
+      tone: "text-success",
+    })),
+    ...reports.map((r) => ({
+      id: `r-${r.id}`,
+      label: `Report: ${r.title}`,
+      time: r.created_at,
+      icon: FileText,
+      tone: "text-warning",
+    })),
+    ...chats.map((c) => ({
+      id: `c-${c.id}`,
+      label: `Chat: ${c.title}`,
+      time: c.created_at,
+      icon: Bot,
+      tone: "text-brand-400",
+    })),
   ]
     .sort((a, b) => +new Date(b.time) - +new Date(a.time))
     .slice(0, 8);

@@ -18,7 +18,13 @@ const INSIGHT_GROUPS: [string, string][] = [
   ["recommendations", "Executive recommendations"],
 ];
 
-export function ReportPreviewDialog({ report, onOpenChange }: { report: Report | null; onOpenChange: (o: boolean) => void }) {
+export function ReportPreviewDialog({
+  report,
+  onOpenChange,
+}: {
+  report: Report | null;
+  onOpenChange: (o: boolean) => void;
+}) {
   const { data, isLoading } = useReport(report?.id);
   const sections = (data?.sections ?? {}) as Record<string, any>;
   const insights = sections.insights as Record<string, string[]> | undefined;
@@ -42,7 +48,12 @@ export function ReportPreviewDialog({ report, onOpenChange }: { report: Report |
               <Button variant="outline" size="sm" onClick={downloadPdf}>
                 <Download className="size-4" /> PDF
               </Button>
-              <Button variant="ghost" size="icon-sm" onClick={() => downloadReportMarkdown(data)} aria-label="Download Markdown">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => downloadReportMarkdown(data)}
+                aria-label="Download Markdown"
+              >
                 <FileDown className="size-4" />
               </Button>
               <Button variant="ghost" size="icon-sm" onClick={() => printReport(data)} aria-label="Print">
@@ -71,7 +82,9 @@ export function ReportPreviewDialog({ report, onOpenChange }: { report: Report |
                     <Stat label="Rows" value={String(sections.overview.row_count ?? "—")} />
                     <Stat label="Columns" value={String(sections.overview.column_count ?? "—")} />
                     <Stat label="Type" value={String(sections.overview.source_type ?? "").toUpperCase()} />
-                    {sections.highlights?.quality_score != null && <Stat label="Quality" value={`${sections.highlights.quality_score}/100`} />}
+                    {sections.highlights?.quality_score != null && (
+                      <Stat label="Quality" value={`${sections.highlights.quality_score}/100`} />
+                    )}
                   </div>
                 </Section>
               )}

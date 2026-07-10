@@ -5,9 +5,7 @@ import { SourceTypeIcon } from "@/features/datasets/components/file-preview";
 import type { Dataset } from "@/types/api";
 
 export function UploadHistory({ datasets }: { datasets: Dataset[] }) {
-  const recent = [...datasets]
-    .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
-    .slice(0, 5);
+  const recent = [...datasets].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at)).slice(0, 5);
 
   if (recent.length === 0) return null;
 

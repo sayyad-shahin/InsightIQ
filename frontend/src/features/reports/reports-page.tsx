@@ -1,12 +1,29 @@
 import { formatDistanceToNow } from "date-fns";
 import { motion } from "framer-motion";
-import { ArrowUpDown, ChevronLeft, ChevronRight, Download, FileDown, FileText, Plus, Printer, Search, Trash2 } from "lucide-react";
+import {
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  FileDown,
+  FileText,
+  Plus,
+  Printer,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CreateReportDialog } from "@/features/reports/components/create-report-dialog";
@@ -54,7 +71,15 @@ export default function ReportsPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search reports…" value={search} onChange={(e) => { setSearch(e.target.value); setPage(0); }} className="pl-9" />
+          <Input
+            placeholder="Search reports…"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(0);
+            }}
+            className="pl-9"
+          />
         </div>
         <Button variant="outline" size="sm" onClick={() => setNewest((n) => !n)}>
           <ArrowUpDown className="size-4" /> {newest ? "Newest first" : "Oldest first"}
@@ -69,7 +94,16 @@ export default function ReportsPage() {
         </div>
       ) : reports.length === 0 ? (
         <div className="card-surface">
-          <EmptyState icon={FileText} title="No reports yet" description="Generate an executive report from any processed dataset." action={<Button variant="gradient" onClick={() => setCreateOpen(true)}><Plus className="size-4" /> New report</Button>} />
+          <EmptyState
+            icon={FileText}
+            title="No reports yet"
+            description="Generate an executive report from any processed dataset."
+            action={
+              <Button variant="gradient" onClick={() => setCreateOpen(true)}>
+                <Plus className="size-4" /> New report
+              </Button>
+            }
+          />
         </div>
       ) : visible.length === 0 ? (
         <div className="card-surface">
@@ -85,13 +119,25 @@ export default function ReportsPage() {
 
           {pageCount > 1 && (
             <div className="flex items-center justify-center gap-2">
-              <Button variant="outline" size="icon-sm" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={current === 0} aria-label="Previous page">
+              <Button
+                variant="outline"
+                size="icon-sm"
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={current === 0}
+                aria-label="Previous page"
+              >
                 <ChevronLeft className="size-4" />
               </Button>
               <span className="text-sm text-muted-foreground">
                 Page {current + 1} of {pageCount}
               </span>
-              <Button variant="outline" size="icon-sm" onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))} disabled={current >= pageCount - 1} aria-label="Next page">
+              <Button
+                variant="outline"
+                size="icon-sm"
+                onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                disabled={current >= pageCount - 1}
+                aria-label="Next page"
+              >
                 <ChevronRight className="size-4" />
               </Button>
             </div>
@@ -115,7 +161,17 @@ export default function ReportsPage() {
   );
 }
 
-function ReportCard({ report, index, onPreview, onDelete }: { report: Report; index: number; onPreview: (r: Report) => void; onDelete: (r: Report) => void }) {
+function ReportCard({
+  report,
+  index,
+  onPreview,
+  onDelete,
+}: {
+  report: Report;
+  index: number;
+  onPreview: (r: Report) => void;
+  onDelete: (r: Report) => void;
+}) {
   async function downloadPdf() {
     try {
       await api.reports.downloadPdf(report.id, report.title);
@@ -143,7 +199,9 @@ function ReportCard({ report, index, onPreview, onDelete }: { report: Report; in
         </div>
         <button onClick={() => onPreview(report)} className="min-w-0 flex-1 text-left">
           <p className="line-clamp-2 font-semibold group-hover:text-primary">{report.title}</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">{formatDistanceToNow(new Date(report.created_at), { addSuffix: true })}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {formatDistanceToNow(new Date(report.created_at), { addSuffix: true })}
+          </p>
         </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -162,7 +220,10 @@ function ReportCard({ report, index, onPreview, onDelete }: { report: Report; in
               <Printer /> Print
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onDelete(report)} className="text-destructive focus:text-destructive">
+            <DropdownMenuItem
+              onClick={() => onDelete(report)}
+              className="text-destructive focus:text-destructive"
+            >
               <Trash2 /> Delete
             </DropdownMenuItem>
           </DropdownMenuContent>

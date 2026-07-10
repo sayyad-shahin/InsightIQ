@@ -108,7 +108,12 @@ export default function DatasetsPage() {
           />
         </div>
         <div className="flex items-center gap-1 rounded-xl border border-border bg-card p-1">
-          <ViewButton active={view === "grid"} onClick={() => setView("grid")} icon={LayoutGrid} label="Grid" />
+          <ViewButton
+            active={view === "grid"}
+            onClick={() => setView("grid")}
+            icon={LayoutGrid}
+            label="Grid"
+          />
           <ViewButton active={view === "list"} onClick={() => setView("list")} icon={List} label="List" />
         </div>
       </div>

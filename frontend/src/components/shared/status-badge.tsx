@@ -2,14 +2,20 @@ import { Badge } from "@/components/ui/badge";
 import type { DatasetStatus, ForecastStatus } from "@/types/api";
 import { cn } from "@/lib/utils";
 
-const DATASET_MAP: Record<DatasetStatus, { label: string; variant: "default" | "success" | "warning" | "destructive" }> = {
+const DATASET_MAP: Record<
+  DatasetStatus,
+  { label: string; variant: "default" | "success" | "warning" | "destructive" }
+> = {
   uploaded: { label: "Uploaded", variant: "default" },
   processing: { label: "Processing", variant: "warning" },
   cleaned: { label: "Ready", variant: "success" },
   error: { label: "Error", variant: "destructive" },
 };
 
-const FORECAST_MAP: Record<ForecastStatus, { label: string; variant: "default" | "success" | "warning" | "destructive" }> = {
+const FORECAST_MAP: Record<
+  ForecastStatus,
+  { label: string; variant: "default" | "success" | "warning" | "destructive" }
+> = {
   queued: { label: "Queued", variant: "default" },
   running: { label: "Running", variant: "warning" },
   done: { label: "Done", variant: "success" },

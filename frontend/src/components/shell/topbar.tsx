@@ -7,7 +7,13 @@ import { UserMenu } from "@/components/shell/user-menu";
 export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border bg-background/70 px-4 backdrop-blur-xl lg:px-6">
-      <Button variant="ghost" size="icon" className="lg:hidden" onClick={onOpenMobileNav} aria-label="Open menu">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="lg:hidden"
+        onClick={onOpenMobileNav}
+        aria-label="Open menu"
+      >
         <Menu className="size-5" />
       </Button>
 

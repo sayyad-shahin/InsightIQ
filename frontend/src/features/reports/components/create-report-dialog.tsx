@@ -2,13 +2,26 @@ import { FileText } from "lucide-react";
 import { useEffect, useState } from "react";
 import { DatasetSelect } from "@/components/shared/dataset-select";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCreateReport } from "@/features/reports/hooks";
 import { useDatasets } from "@/features/datasets/hooks";
 
-export function CreateReportDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+export function CreateReportDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+}) {
   const datasets = useDatasets().data ?? [];
   const create = useCreateReport();
   const [datasetId, setDatasetId] = useState("");
@@ -24,7 +37,16 @@ export function CreateReportDialog({ open, onOpenChange }: { open: boolean; onOp
 
   function submit() {
     if (!datasetId || !title.trim()) return;
-    create.mutate({ dataset_id: datasetId, title: title.trim() }, { onSuccess: () => { onOpenChange(false); setDatasetId(""); setTitle(""); } });
+    create.mutate(
+      { dataset_id: datasetId, title: title.trim() },
+      {
+        onSuccess: () => {
+          onOpenChange(false);
+          setDatasetId("");
+          setTitle("");
+        },
+      },
+    );
   }
 
   return (
@@ -46,14 +68,24 @@ export function CreateReportDialog({ open, onOpenChange }: { open: boolean; onOp
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="report-title">Title</Label>
-            <Input id="report-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Q3 Executive Report" />
+            <Input
+              id="report-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Q3 Executive Report"
+            />
           </div>
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button variant="gradient" onClick={submit} loading={create.isPending} disabled={!datasetId || !title.trim()}>
+          <Button
+            variant="gradient"
+            onClick={submit}
+            loading={create.isPending}
+            disabled={!datasetId || !title.trim()}
+          >
             Generate
           </Button>
         </DialogFooter>

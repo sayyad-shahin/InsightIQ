@@ -13,7 +13,12 @@ export function conversationToMarkdown(chat: ChatDetail): string {
 }
 
 function slugify(title: string): string {
-  return title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "conversation";
+  return (
+    title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "") || "conversation"
+  );
 }
 
 export function downloadMarkdown(chat: ChatDetail): void {

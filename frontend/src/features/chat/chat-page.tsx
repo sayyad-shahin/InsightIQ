@@ -70,7 +70,15 @@ export default function ChatPage() {
   }
 
   const sidebar = (
-    <ChatSidebar chats={chats} activeId={activeId} onSelect={selectChat} onNew={() => { setActiveId(null); setMobileNav(false); }} />
+    <ChatSidebar
+      chats={chats}
+      activeId={activeId}
+      onSelect={selectChat}
+      onNew={() => {
+        setActiveId(null);
+        setMobileNav(false);
+      }}
+    />
   );
 
   return (
@@ -82,7 +90,10 @@ export default function ChatPage() {
 
       {/* Mobile drawer */}
       <Dialog open={mobileNav} onOpenChange={setMobileNav}>
-        <DialogContent hideClose className="fixed left-0 top-0 h-full max-w-[300px] translate-x-0 translate-y-0 rounded-none rounded-r-2xl border-y-0 border-l-0 p-0">
+        <DialogContent
+          hideClose
+          className="fixed left-0 top-0 h-full max-w-[300px] translate-x-0 translate-y-0 rounded-none rounded-r-2xl border-y-0 border-l-0 p-0"
+        >
           {sidebar}
         </DialogContent>
       </Dialog>
@@ -91,7 +102,13 @@ export default function ChatPage() {
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-          <Button variant="ghost" size="icon-sm" className="lg:hidden" onClick={() => setMobileNav(true)} aria-label="Conversations">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="lg:hidden"
+            onClick={() => setMobileNav(true)}
+            aria-label="Conversations"
+          >
             <Menu className="size-4" />
           </Button>
           <div className="min-w-0 flex-1">

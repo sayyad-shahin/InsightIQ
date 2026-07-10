@@ -58,7 +58,14 @@ describe("ChatPage workflow", () => {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       messages: [
-        { id: "m1", role: "user", content: "Summarize the key business insights and give executive recommendations.", result_type: "none", result_payload: null, created_at: new Date().toISOString() },
+        {
+          id: "m1",
+          role: "user",
+          content: "Summarize the key business insights and give executive recommendations.",
+          result_type: "none",
+          result_payload: null,
+          created_at: new Date().toISOString(),
+        },
         assistantMsg,
       ],
     });

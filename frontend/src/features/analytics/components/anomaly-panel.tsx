@@ -20,7 +20,11 @@ export function AnomalyPanel({ items, chart, recommendations }: AnomalyPanelProp
   if (items.length === 0) {
     return (
       <div className="card-surface">
-        <EmptyState icon={ShieldCheck} title="No anomalies detected" description="The numeric data is statistically consistent (IQR rule)." />
+        <EmptyState
+          icon={ShieldCheck}
+          title="No anomalies detected"
+          description="The numeric data is statistically consistent (IQR rule)."
+        />
       </div>
     );
   }
@@ -75,7 +79,10 @@ export function AnomalyPanel({ items, chart, recommendations }: AnomalyPanelProp
           </div>
           <ul className="space-y-2">
             {recommendations.map((r, i) => (
-              <li key={i} className="flex gap-2 rounded-xl border border-border bg-card/70 p-2.5 text-sm backdrop-blur">
+              <li
+                key={i}
+                className="flex gap-2 rounded-xl border border-border bg-card/70 p-2.5 text-sm backdrop-blur"
+              >
                 <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary" />
                 <span>{r.replace(/\*\*(.*?)\*\*/g, "$1")}</span>
               </li>

@@ -1,13 +1,7 @@
 import { AnimatePresence } from "framer-motion";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { UploadDropzone } from "@/features/datasets/components/upload-dropzone";
 import { UploadHistory } from "@/features/datasets/components/upload-history";

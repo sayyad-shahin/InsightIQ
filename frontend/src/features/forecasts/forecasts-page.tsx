@@ -63,12 +63,26 @@ export default function ForecastsPage() {
       <PageHeader
         title="Forecasting"
         description="Project future trends with confidence intervals and accuracy metrics."
-        actions={<DatasetSelect datasets={datasets} value={datasetId} onChange={(id) => { setDatasetId(id); setSelectedId(null); }} className="w-64" />}
+        actions={
+          <DatasetSelect
+            datasets={datasets}
+            value={datasetId}
+            onChange={(id) => {
+              setDatasetId(id);
+              setSelectedId(null);
+            }}
+            className="w-64"
+          />
+        }
       />
 
       {ready.length === 0 ? (
         <div className="card-surface">
-          <EmptyState icon={TrendingUp} title="No processed datasets" description="Upload and process a dataset to run forecasts." />
+          <EmptyState
+            icon={TrendingUp}
+            title="No processed datasets"
+            description="Upload and process a dataset to run forecasts."
+          />
         </div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[20rem_1fr]">
@@ -78,7 +92,12 @@ export default function ForecastsPage() {
               <p className="mb-3 text-sm font-semibold">New forecast</p>
               <div className="space-y-3">
                 <Field label="Target column">
-                  <select value={target} onChange={(e) => setTarget(e.target.value)} disabled={!numericColumns.length} className={selectClass}>
+                  <select
+                    value={target}
+                    onChange={(e) => setTarget(e.target.value)}
+                    disabled={!numericColumns.length}
+                    className={selectClass}
+                  >
                     {numericColumns.length === 0 && <option value="">No numeric columns</option>}
                     {numericColumns.map((c) => (
                       <option key={c} value={c}>
@@ -88,7 +107,11 @@ export default function ForecastsPage() {
                   </select>
                 </Field>
                 <Field label="Model">
-                  <select value={model} onChange={(e) => setModel(e.target.value as ForecastModelType)} className={selectClass}>
+                  <select
+                    value={model}
+                    onChange={(e) => setModel(e.target.value as ForecastModelType)}
+                    className={selectClass}
+                  >
                     <option value="sklearn_regression">Linear regression</option>
                     <option value="prophet">Prophet (seasonal)</option>
                   </select>
@@ -101,7 +124,9 @@ export default function ForecastsPage() {
                         onClick={() => setHorizon(h)}
                         className={cn(
                           "rounded-lg border py-1.5 text-xs font-medium transition",
-                          horizon === h ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent",
+                          horizon === h
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border hover:bg-accent",
                         )}
                       >
                         {h}
@@ -109,7 +134,13 @@ export default function ForecastsPage() {
                     ))}
                   </div>
                 </Field>
-                <Button variant="gradient" className="w-full" onClick={runForecast} loading={create.isPending} disabled={!target}>
+                <Button
+                  variant="gradient"
+                  className="w-full"
+                  onClick={runForecast}
+                  loading={create.isPending}
+                  disabled={!target}
+                >
                   <Play className="size-4" /> Run forecast
                 </Button>
               </div>
@@ -132,18 +163,24 @@ export default function ForecastsPage() {
                       key={f.id}
                       className={cn(
                         "group flex items-center gap-2 rounded-xl border px-2.5 py-2 transition",
-                        selectedId === f.id ? "border-primary bg-accent" : "border-transparent hover:bg-accent/60",
+                        selectedId === f.id
+                          ? "border-primary bg-accent"
+                          : "border-transparent hover:bg-accent/60",
                       )}
                     >
                       <button onClick={() => setSelectedId(f.id)} className="min-w-0 flex-1 text-left">
                         <p className="truncate text-sm font-medium">{f.target_column}</p>
                         <p className="text-xs text-muted-foreground">
-                          {f.horizon_periods}p · {formatDistanceToNow(new Date(f.created_at), { addSuffix: true })}
+                          {f.horizon_periods}p ·{" "}
+                          {formatDistanceToNow(new Date(f.created_at), { addSuffix: true })}
                         </p>
                       </button>
                       <ForecastStatusBadge status={f.status} />
                       <button
-                        onClick={() => { del.mutate(f.id); if (selectedId === f.id) setSelectedId(null); }}
+                        onClick={() => {
+                          del.mutate(f.id);
+                          if (selectedId === f.id) setSelectedId(null);
+                        }}
                         className="text-muted-foreground opacity-0 transition hover:text-destructive group-hover:opacity-100"
                         aria-label="Delete forecast"
                       >
@@ -160,10 +197,18 @@ export default function ForecastsPage() {
           <div>
             {!selectedId ? (
               <div className="card-surface h-full">
-                <EmptyState icon={TrendingUp} title="Select or run a forecast" description="Configure a target and horizon, then run a forecast to see projections here." />
+                <EmptyState
+                  icon={TrendingUp}
+                  title="Select or run a forecast"
+                  description="Configure a target and horizon, then run a forecast to see projections here."
+                />
               </div>
             ) : (
-              <ForecastDetailView key={selectedId} forecastQuery={selected} onDownload={() => selected.data && downloadForecastCsv(selected.data)} />
+              <ForecastDetailView
+                key={selectedId}
+                forecastQuery={selected}
+                onDownload={() => selected.data && downloadForecastCsv(selected.data)}
+              />
             )}
           </div>
         </div>
@@ -172,7 +217,13 @@ export default function ForecastsPage() {
   );
 }
 
-function ForecastDetailView({ forecastQuery, onDownload }: { forecastQuery: ReturnType<typeof useForecast>; onDownload: () => void }) {
+function ForecastDetailView({
+  forecastQuery,
+  onDownload,
+}: {
+  forecastQuery: ReturnType<typeof useForecast>;
+  onDownload: () => void;
+}) {
   const f = forecastQuery.data;
   if (forecastQuery.isLoading || !f) return <Skeleton className="h-96 rounded-2xl" />;
 
@@ -187,7 +238,11 @@ function ForecastDetailView({ forecastQuery, onDownload }: { forecastQuery: Retu
   if (f.status === "failed") {
     return (
       <div className="card-surface">
-        <EmptyState icon={TrendingUp} title="Forecast failed" description={f.error_message ?? "The model could not be fit."} />
+        <EmptyState
+          icon={TrendingUp}
+          title="Forecast failed"
+          description={f.error_message ?? "The model could not be fit."}
+        />
       </div>
     );
   }
@@ -217,7 +272,11 @@ function ForecastDetailView({ forecastQuery, onDownload }: { forecastQuery: Retu
         </div>
       )}
 
-      {f.result.note && <p className="rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm text-warning">{f.result.note}</p>}
+      {f.result.note && (
+        <p className="rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
+          {f.result.note}
+        </p>
+      )}
     </motion.div>
   );
 }
@@ -241,4 +300,5 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-const selectClass = "h-9 w-full rounded-lg border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring";
+const selectClass =
+  "h-9 w-full rounded-lg border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring";

@@ -1,5 +1,13 @@
 import { motion } from "framer-motion";
-import { AlertTriangle, Gauge, Lightbulb, ListChecks, Rocket, TrendingUp, type LucideIcon } from "lucide-react";
+import {
+  AlertTriangle,
+  Gauge,
+  Lightbulb,
+  ListChecks,
+  Rocket,
+  TrendingUp,
+  type LucideIcon,
+} from "lucide-react";
 import type { BusinessInsights } from "@/types/api";
 
 const GROUPS: { key: keyof BusinessInsights; title: string; icon: LucideIcon; tone: string }[] = [
@@ -38,7 +46,9 @@ export function InsightCards({ insights }: { insights: BusinessInsights }) {
             <ul className="space-y-2">
               {items.map((item, idx) => (
                 <li key={idx} className="flex gap-2 text-sm text-foreground/85">
-                  <span className={`mt-1.5 size-1.5 shrink-0 rounded-full ${g.tone.split(" ")[0].replace("text", "bg")}`} />
+                  <span
+                    className={`mt-1.5 size-1.5 shrink-0 rounded-full ${g.tone.split(" ")[0].replace("text", "bg")}`}
+                  />
                   <span>{stripMd(item)}</span>
                 </li>
               ))}

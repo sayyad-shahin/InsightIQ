@@ -29,24 +29,57 @@ export default function SettingsPage() {
 
       <Tabs defaultValue="profile">
         <TabsList className="flex-wrap">
-          <TabsTrigger value="profile"><UserIcon className="size-4" /> Profile</TabsTrigger>
-          <TabsTrigger value="appearance"><Palette className="size-4" /> Appearance</TabsTrigger>
-          <TabsTrigger value="notifications"><Bell className="size-4" /> Notifications</TabsTrigger>
-          <TabsTrigger value="security"><Shield className="size-4" /> Security</TabsTrigger>
-          <TabsTrigger value="api"><KeyRound className="size-4" /> API keys</TabsTrigger>
+          <TabsTrigger value="profile">
+            <UserIcon className="size-4" /> Profile
+          </TabsTrigger>
+          <TabsTrigger value="appearance">
+            <Palette className="size-4" /> Appearance
+          </TabsTrigger>
+          <TabsTrigger value="notifications">
+            <Bell className="size-4" /> Notifications
+          </TabsTrigger>
+          <TabsTrigger value="security">
+            <Shield className="size-4" /> Security
+          </TabsTrigger>
+          <TabsTrigger value="api">
+            <KeyRound className="size-4" /> API keys
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="profile"><ProfileTab /></TabsContent>
-        <TabsContent value="appearance"><AppearanceTab language={settingsQ.data?.language ?? "en"} onLanguage={(language) => update.mutate({ language }, { onSuccess: () => toast.success("Saved") })} /></TabsContent>
-        <TabsContent value="notifications"><NotificationsTab prefs={prefs} onSave={savePrefs} /></TabsContent>
-        <TabsContent value="security"><SecurityTab /></TabsContent>
-        <TabsContent value="api"><ApiKeysTab prefs={prefs} onSave={savePrefs} saving={update.isPending} /></TabsContent>
+        <TabsContent value="profile">
+          <ProfileTab />
+        </TabsContent>
+        <TabsContent value="appearance">
+          <AppearanceTab
+            language={settingsQ.data?.language ?? "en"}
+            onLanguage={(language) =>
+              update.mutate({ language }, { onSuccess: () => toast.success("Saved") })
+            }
+          />
+        </TabsContent>
+        <TabsContent value="notifications">
+          <NotificationsTab prefs={prefs} onSave={savePrefs} />
+        </TabsContent>
+        <TabsContent value="security">
+          <SecurityTab />
+        </TabsContent>
+        <TabsContent value="api">
+          <ApiKeysTab prefs={prefs} onSave={savePrefs} saving={update.isPending} />
+        </TabsContent>
       </Tabs>
     </div>
   );
 }
 
-function Card({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+function Card({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="max-w-2xl rounded-2xl border border-border bg-card p-6 shadow-soft">
       <h2 className="text-base font-semibold">{title}</h2>
@@ -108,10 +141,15 @@ function AppearanceTab({ language, onLanguage }: { language: string; onLanguage:
           {options.map((o) => (
             <button
               key={o.value}
-              onClick={() => { setTheme(o.value); update.mutate({ theme: o.value }); }}
+              onClick={() => {
+                setTheme(o.value);
+                update.mutate({ theme: o.value });
+              }}
               className={cn(
                 "flex flex-col items-center gap-2 rounded-xl border p-3 text-sm transition",
-                theme === o.value ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent",
+                theme === o.value
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border hover:bg-accent",
               )}
             >
               <o.icon className="size-5" />
@@ -122,8 +160,19 @@ function AppearanceTab({ language, onLanguage }: { language: string; onLanguage:
       </div>
       <div className="space-y-2">
         <Label htmlFor="lang">Language</Label>
-        <select id="lang" value={language} onChange={(e) => onLanguage(e.target.value)} className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          {[["en", "English"], ["es", "Español"], ["fr", "Français"], ["de", "Deutsch"], ["hi", "हिन्दी"]].map(([v, l]) => (
+        <select
+          id="lang"
+          value={language}
+          onChange={(e) => onLanguage(e.target.value)}
+          className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {[
+            ["en", "English"],
+            ["es", "Español"],
+            ["fr", "Français"],
+            ["de", "Deutsch"],
+            ["hi", "हिन्दी"],
+          ].map(([v, l]) => (
             <option key={v} value={v}>
               {l}
             </option>
@@ -134,7 +183,13 @@ function AppearanceTab({ language, onLanguage }: { language: string; onLanguage:
   );
 }
 
-function NotificationsTab({ prefs, onSave }: { prefs: Record<string, any>; onSave: (p: Record<string, unknown>) => void }) {
+function NotificationsTab({
+  prefs,
+  onSave,
+}: {
+  prefs: Record<string, any>;
+  onSave: (p: Record<string, unknown>) => void;
+}) {
   const notif = prefs.notifications ?? { product_updates: true, weekly_digest: false, forecast_ready: true };
   function toggle(key: string, value: boolean) {
     onSave({ notifications: { ...notif, [key]: value } });
@@ -184,11 +239,24 @@ function SecurityTab() {
       <form onSubmit={submit} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="current">Current password</Label>
-          <Input id="current" type="password" value={current} onChange={(e) => setCurrent(e.target.value)} required />
+          <Input
+            id="current"
+            type="password"
+            value={current}
+            onChange={(e) => setCurrent(e.target.value)}
+            required
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="new">New password</Label>
-          <Input id="new" type="password" value={next} onChange={(e) => setNext(e.target.value)} required minLength={8} />
+          <Input
+            id="new"
+            type="password"
+            value={next}
+            onChange={(e) => setNext(e.target.value)}
+            required
+            minLength={8}
+          />
         </div>
         <Button type="submit" loading={saving} disabled={!current || next.length < 8}>
           Update password
@@ -198,7 +266,15 @@ function SecurityTab() {
   );
 }
 
-function ApiKeysTab({ prefs, onSave, saving }: { prefs: Record<string, any>; onSave: (p: Record<string, unknown>) => void; saving: boolean }) {
+function ApiKeysTab({
+  prefs,
+  onSave,
+  saving,
+}: {
+  prefs: Record<string, any>;
+  onSave: (p: Record<string, unknown>) => void;
+  saving: boolean;
+}) {
   // Secrets are never returned by the API — only a "set" flag per provider.
   const setFlags = (prefs.api_keys_set ?? {}) as Record<string, boolean>;
   const [gemini, setGemini] = useState("");

@@ -54,13 +54,21 @@ export default function AnalyticsPage() {
 
       {ready.length === 0 ? (
         <div className="card-surface">
-          <EmptyState icon={Database} title="No processed datasets" description="Upload and process a dataset to explore analytics." />
+          <EmptyState
+            icon={Database}
+            title="No processed datasets"
+            description="Upload and process a dataset to explore analytics."
+          />
         </div>
       ) : isLoading || !data ? (
         <AnalyticsSkeleton />
       ) : isError ? (
         <div className="card-surface">
-          <EmptyState icon={BarChart3} title="Couldn't load analytics" action={<Button onClick={() => refetch()}>Retry</Button>} />
+          <EmptyState
+            icon={BarChart3}
+            title="Couldn't load analytics"
+            action={<Button onClick={() => refetch()}>Retry</Button>}
+          />
         </div>
       ) : (
         <div className={isFetching ? "space-y-8 opacity-70 transition-opacity" : "space-y-8"}>
@@ -68,8 +76,18 @@ export default function AnalyticsPage() {
 
           {/* Drill-down controls */}
           <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card p-3 shadow-soft">
-            <Selector label="Measure" value={data.primary_measure ?? ""} options={data.options.measures} onChange={setMeasure} />
-            <Selector label="Breakdown by" value={data.dimension ?? ""} options={data.options.dimensions} onChange={setDimension} />
+            <Selector
+              label="Measure"
+              value={data.primary_measure ?? ""}
+              options={data.options.measures}
+              onChange={setMeasure}
+            />
+            <Selector
+              label="Breakdown by"
+              value={data.dimension ?? ""}
+              options={data.options.dimensions}
+              onChange={setDimension}
+            />
           </div>
 
           <Section title="Business insights">
@@ -77,8 +95,15 @@ export default function AnalyticsPage() {
           </Section>
 
           {data.trend && (
-            <Section title="Sales & revenue trend" actions={<DateRange from={from} to={to} onFrom={setFrom} onTo={setTo} />}>
-              <ChartFrame spec={windowTrend(data.trend.chart, from, to)} height={340} subtitle={`Change ${data.trend.change_pct >= 0 ? "+" : ""}${data.trend.change_pct}% · peak ${data.trend.peak.date}`} />
+            <Section
+              title="Sales & revenue trend"
+              actions={<DateRange from={from} to={to} onFrom={setFrom} onTo={setTo} />}
+            >
+              <ChartFrame
+                spec={windowTrend(data.trend.chart, from, to)}
+                height={340}
+                subtitle={`Change ${data.trend.change_pct >= 0 ? "+" : ""}${data.trend.change_pct}% · peak ${data.trend.peak.date}`}
+              />
             </Section>
           )}
 
@@ -116,7 +141,9 @@ export default function AnalyticsPage() {
                         <span className="text-muted-foreground">
                           {p.a} ↔ {p.b}
                         </span>
-                        <span className={`font-semibold tabular-nums ${p.value >= 0 ? "text-success" : "text-destructive"}`}>
+                        <span
+                          className={`font-semibold tabular-nums ${p.value >= 0 ? "text-success" : "text-destructive"}`}
+                        >
                           {p.value >= 0 ? "+" : ""}
                           {p.value}
                         </span>
@@ -133,7 +160,11 @@ export default function AnalyticsPage() {
           </Section>
 
           <Section title="Anomaly detection">
-            <AnomalyPanel items={data.anomalies.items} chart={data.anomalies.chart} recommendations={data.anomalies.recommendations} />
+            <AnomalyPanel
+              items={data.anomalies.items}
+              chart={data.anomalies.chart}
+              recommendations={data.anomalies.recommendations}
+            />
           </Section>
         </div>
       )}
@@ -158,7 +189,17 @@ function Kpis({ data }: { data: DatasetAnalytics }) {
   );
 }
 
-function Selector({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (v: string) => void }) {
+function Selector({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (v: string) => void;
+}) {
   if (options.length === 0) return null;
   return (
     <label className="flex items-center gap-2 text-sm">
@@ -178,12 +219,32 @@ function Selector({ label, value, options, onChange }: { label: string; value: s
   );
 }
 
-function DateRange({ from, to, onFrom, onTo }: { from: string; to: string; onFrom: (v: string) => void; onTo: (v: string) => void }) {
+function DateRange({
+  from,
+  to,
+  onFrom,
+  onTo,
+}: {
+  from: string;
+  to: string;
+  onFrom: (v: string) => void;
+  onTo: (v: string) => void;
+}) {
   return (
     <div className="flex items-center gap-2 text-xs text-muted-foreground">
-      <input type="date" value={from} onChange={(e) => onFrom(e.target.value)} className="h-8 rounded-lg border border-input bg-background px-2 outline-none" />
+      <input
+        type="date"
+        value={from}
+        onChange={(e) => onFrom(e.target.value)}
+        className="h-8 rounded-lg border border-input bg-background px-2 outline-none"
+      />
       <span>→</span>
-      <input type="date" value={to} onChange={(e) => onTo(e.target.value)} className="h-8 rounded-lg border border-input bg-background px-2 outline-none" />
+      <input
+        type="date"
+        value={to}
+        onChange={(e) => onTo(e.target.value)}
+        className="h-8 rounded-lg border border-input bg-background px-2 outline-none"
+      />
     </div>
   );
 }
@@ -205,14 +266,18 @@ function MissingValues({ data }: { data: DatasetAnalytics }) {
     <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
       <p className="mb-3 text-sm text-muted-foreground">
         {cols.length === 0 ? "No missing values detected." : `${cols.length} column(s) with missing values`}
-        {data.missing_values.duplicate_rows > 0 && ` · ${data.missing_values.duplicate_rows} duplicate row(s)`}
+        {data.missing_values.duplicate_rows > 0 &&
+          ` · ${data.missing_values.duplicate_rows} duplicate row(s)`}
       </p>
       <div className="space-y-2">
         {cols.map((c) => (
           <div key={c.name} className="flex items-center gap-3 text-sm">
             <span className="w-40 shrink-0 truncate">{c.name}</span>
             <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-muted">
-              <div className="h-full rounded-full bg-warning" style={{ width: `${Math.min(100, c.missing_pct)}%` }} />
+              <div
+                className="h-full rounded-full bg-warning"
+                style={{ width: `${Math.min(100, c.missing_pct)}%` }}
+              />
             </div>
             <span className="w-24 shrink-0 text-right text-xs text-muted-foreground">
               {c.missing_count} ({c.missing_pct}%)
@@ -224,7 +289,15 @@ function MissingValues({ data }: { data: DatasetAnalytics }) {
   );
 }
 
-function Section({ title, actions, children }: { title: string; actions?: React.ReactNode; children: React.ReactNode }) {
+function Section({
+  title,
+  actions,
+  children,
+}: {
+  title: string;
+  actions?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-2">

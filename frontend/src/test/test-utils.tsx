@@ -20,7 +20,9 @@ export function renderWithProviders(ui: ReactElement, { route = "/" }: { route?:
   );
 }
 
-export function makeDataset(overrides: Partial<import("@/types/api").Dataset> = {}): import("@/types/api").Dataset {
+export function makeDataset(
+  overrides: Partial<import("@/types/api").Dataset> = {},
+): import("@/types/api").Dataset {
   return {
     id: crypto.randomUUID(),
     name: "sales.csv",

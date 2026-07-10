@@ -56,7 +56,10 @@ export function DatasetTable({ datasets, sortKey, sortDir, onSort, onPreview, on
             {datasets.map((d) => {
               const isReady = d.status === "cleaned";
               return (
-                <tr key={d.id} className="border-b border-border/60 transition-colors last:border-0 hover:bg-accent/50">
+                <tr
+                  key={d.id}
+                  className="border-b border-border/60 transition-colors last:border-0 hover:bg-accent/50"
+                >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <SourceTypeIcon type={d.source_type} className="size-8" />
@@ -82,7 +85,12 @@ export function DatasetTable({ datasets, sortKey, sortDir, onSort, onPreview, on
                     {formatDistanceToNow(new Date(d.created_at), { addSuffix: true })}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <DatasetActionsMenu dataset={d} onPreview={onPreview} onClean={onClean} onRename={onRename} />
+                    <DatasetActionsMenu
+                      dataset={d}
+                      onPreview={onPreview}
+                      onClean={onClean}
+                      onRename={onRename}
+                    />
                   </td>
                 </tr>
               );

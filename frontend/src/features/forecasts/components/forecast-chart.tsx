@@ -15,7 +15,15 @@ export function ForecastChart({ result, target }: { result: ForecastResult; targ
 
   if (result.upper && result.lower) {
     data.push(
-      { x: labels, y: pad(result.upper), type: "scatter", mode: "lines", line: { width: 0 }, showlegend: false, hoverinfo: "skip" },
+      {
+        x: labels,
+        y: pad(result.upper),
+        type: "scatter",
+        mode: "lines",
+        line: { width: 0 },
+        showlegend: false,
+        hoverinfo: "skip",
+      },
       {
         x: labels,
         y: pad(result.lower),

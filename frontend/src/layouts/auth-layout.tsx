@@ -64,8 +64,8 @@ export function AuthLayout() {
             <div className="max-w-md">
               <Quote className="mb-3 size-6 text-primary/60" />
               <p className="text-xl font-medium leading-relaxed">
-                InsightIQ turned our messy spreadsheets into board-ready forecasts in minutes. It feels
-                like magic.
+                InsightIQ turned our messy spreadsheets into board-ready forecasts in minutes. It feels like
+                magic.
               </p>
               <p className="mt-4 text-sm text-muted-foreground">Head of Analytics, Fortune 500 retailer</p>
             </div>

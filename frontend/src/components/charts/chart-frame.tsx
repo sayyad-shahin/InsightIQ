@@ -27,9 +27,22 @@ interface ChartFrameProps {
   actions?: React.ReactNode;
 }
 
-const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "chart";
+const slug = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "") || "chart";
 
-export function ChartFrame({ spec, data, layout, title, subtitle, height = 320, className, actions }: ChartFrameProps) {
+export function ChartFrame({
+  spec,
+  data,
+  layout,
+  title,
+  subtitle,
+  height = 320,
+  className,
+  actions,
+}: ChartFrameProps) {
   const elRef = useRef<HTMLDivElement | null>(null);
   const [ready, setReady] = useState(false);
   const heading = title ?? spec?.title;

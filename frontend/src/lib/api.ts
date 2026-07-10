@@ -179,7 +179,8 @@ export const api = {
   },
   settings: {
     get: () => request<UserSettings>("/settings/me"),
-    update: (data: Partial<UserSettings>) => request<UserSettings>("/settings/me", { method: "PATCH", body: data }),
+    update: (data: Partial<UserSettings>) =>
+      request<UserSettings>("/settings/me", { method: "PATCH", body: data }),
   },
   datasets: {
     list: (limit?: number, offset?: number) => request<Dataset[]>(`/datasets${page(limit, offset)}`),
@@ -205,7 +206,8 @@ export const api = {
     cleanUndo: (id: string) => request<DatasetDetail>(`/datasets/${id}/clean/undo`, { method: "POST" }),
     remove: (id: string) => request<void>(`/datasets/${id}`, { method: "DELETE" }),
     upload: (file: File, onProgress?: (pct: number) => void) => uploadWithProgress(file, onProgress),
-    createUpload: (file: File, onProgress?: (pct: number) => void) => createCancellableUpload(file, onProgress),
+    createUpload: (file: File, onProgress?: (pct: number) => void) =>
+      createCancellableUpload(file, onProgress),
   },
   forecasts: {
     list: (datasetId?: string, limit?: number) => {
@@ -331,8 +333,7 @@ async function streamChatMessage(
       if (!line) continue;
       try {
         const payload = JSON.parse(line.slice(5).trim()) as
-          | { type: "token"; content: string }
-          | { type: "done"; message: ChatMessage };
+          { type: "token"; content: string } | { type: "done"; message: ChatMessage };
         if (payload.type === "token") handlers.onToken(payload.content);
         else if (payload.type === "done") handlers.onDone(payload.message);
       } catch {

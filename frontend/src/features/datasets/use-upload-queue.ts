@@ -32,7 +32,9 @@ export function useUploadQueue(existingNames: string[] = []) {
   const start = useCallback(
     (item: QueueItem) => {
       patch(item.id, { status: "uploading", progress: 0, error: undefined });
-      const { promise, abort } = api.datasets.createUpload(item.file, (pct) => patch(item.id, { progress: pct }));
+      const { promise, abort } = api.datasets.createUpload(item.file, (pct) =>
+        patch(item.id, { progress: pct }),
+      );
       aborts.current.set(item.id, abort);
       promise
         .then((dataset) => {
@@ -67,7 +69,11 @@ export function useUploadQueue(existingNames: string[] = []) {
           file,
           progress: 0,
           status: !validation.ok ? "error" : duplicate ? "duplicate" : "queued",
-          error: !validation.ok ? validation.error : duplicate ? "A dataset with this name already exists" : undefined,
+          error: !validation.ok
+            ? validation.error
+            : duplicate
+              ? "A dataset with this name already exists"
+              : undefined,
         };
         seen.add(fileKey(file));
         created.push(item);

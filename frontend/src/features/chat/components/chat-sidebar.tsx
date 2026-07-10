@@ -2,13 +2,7 @@ import { MessageSquarePlus, MoreHorizontal, Pencil, Pin, PinOff, Search, Trash2 
 import { useMemo, useState } from "react";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -141,7 +135,9 @@ export function ChatSidebar({ chats, activeId, onSelect, onNew }: ChatSidebarPro
         confirmLabel="Delete"
         destructive
         loading={del.isPending}
-        onConfirm={() => deleteTarget && del.mutate(deleteTarget.id, { onSuccess: () => setDeleteTarget(null) })}
+        onConfirm={() =>
+          deleteTarget && del.mutate(deleteTarget.id, { onSuccess: () => setDeleteTarget(null) })
+        }
       />
     </div>
   );
@@ -151,7 +147,9 @@ function Section({ title, children }: { title?: string; children: React.ReactNod
   return (
     <div className="space-y-0.5">
       {title && (
-        <p className="px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{title}</p>
+        <p className="px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          {title}
+        </p>
       )}
       {children}
     </div>
@@ -176,9 +174,14 @@ function Item({ chat, active, pinned, onSelect, onPin, onRename, onDelete }: Ite
         active ? "bg-accent" : "hover:bg-accent/60",
       )}
     >
-      <button onClick={() => onSelect(chat.id)} className="flex min-w-0 flex-1 items-center gap-2 py-2 text-left">
+      <button
+        onClick={() => onSelect(chat.id)}
+        className="flex min-w-0 flex-1 items-center gap-2 py-2 text-left"
+      >
         {pinned && <Pin className="size-3 shrink-0 text-primary" />}
-        <span className={cn("truncate text-sm", active ? "font-medium" : "text-foreground/80")}>{chat.title}</span>
+        <span className={cn("truncate text-sm", active ? "font-medium" : "text-foreground/80")}>
+          {chat.title}
+        </span>
       </button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -197,7 +200,10 @@ function Item({ chat, active, pinned, onSelect, onPin, onRename, onDelete }: Ite
             <Pencil /> Rename
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => onDelete(chat)} className="text-destructive focus:text-destructive">
+          <DropdownMenuItem
+            onClick={() => onDelete(chat)}
+            className="text-destructive focus:text-destructive"
+          >
             <Trash2 /> Delete
           </DropdownMenuItem>
         </DropdownMenuContent>
