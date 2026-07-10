@@ -42,6 +42,11 @@ export function csrfHeaders(method: string): Record<string, string> {
   return match ? { "X-CSRF-Token": decodeURIComponent(match[1]) } : {};
 }
 
+/** A logged-in session leaves a readable iq_csrf cookie (access/refresh are httpOnly). */
+function hasSessionCookie(): boolean {
+  return /(?:^|;\s*)iq_csrf=/.test(document.cookie);
+}
+
 export class ApiError extends Error {
   status: number;
   detail: unknown;
@@ -114,8 +119,9 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
 
   let res = await doFetch();
 
-  // On 401, try one silent cookie refresh + retry (never for auth endpoints).
-  if (res.status === 401 && !path.startsWith("/auth/")) {
+  // On 401, try one silent cookie refresh + retry — only if a session exists and
+  // this isn't itself an auth endpoint.
+  if (res.status === 401 && !path.startsWith("/auth/") && hasSessionCookie()) {
     const ok = await tryRefresh();
     if (ok) res = await doFetch();
   }
