@@ -1,6 +1,17 @@
 from celery import Celery
+from celery.signals import worker_process_init
 
 from app.core.config import settings
+
+
+@worker_process_init.connect
+def _init_worker_monitoring(**_kwargs) -> None:
+    # Initialise Sentry inside each worker process so background-task exceptions
+    # are reported. No-op when SENTRY_DSN is unset.
+    from app.core.monitoring import init_sentry
+
+    init_sentry()
+
 
 celery_app = Celery(
     "insightiq",

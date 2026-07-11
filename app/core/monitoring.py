@@ -21,11 +21,20 @@ def init_sentry() -> None:
         logger.warning("SENTRY_DSN is set but sentry-sdk is not installed; skipping")
         return
 
+    integrations = [StarletteIntegration(), FastApiIntegration()]
+    # Report exceptions raised in Celery background tasks too, when available.
+    try:
+        from sentry_sdk.integrations.celery import CeleryIntegration
+
+        integrations.append(CeleryIntegration())
+    except ImportError:
+        pass
+
     sentry_sdk.init(
         dsn=settings.SENTRY_DSN,
         environment=settings.APP_ENV,
         traces_sample_rate=settings.SENTRY_TRACES_SAMPLE_RATE,
-        integrations=[StarletteIntegration(), FastApiIntegration()],
+        integrations=integrations,
         send_default_pii=False,
     )
     logger.info(f"Sentry initialized (env={settings.APP_ENV}, traces={settings.SENTRY_TRACES_SAMPLE_RATE})")
