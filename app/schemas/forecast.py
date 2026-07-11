@@ -8,6 +8,10 @@ from app.models.forecast import ForecastModelType, ForecastStatus
 
 
 class ForecastCreate(BaseModel):
+    # `model_type` is a domain field, not a Pydantic reserved name — opt out of the
+    # protected "model_" namespace so it doesn't emit a startup UserWarning.
+    model_config = ConfigDict(protected_namespaces=())
+
     dataset_id: uuid.UUID
     target_column: str = Field(min_length=1, max_length=255)
     model_type: ForecastModelType = ForecastModelType.SKLEARN_REGRESSION
@@ -15,7 +19,7 @@ class ForecastCreate(BaseModel):
 
 
 class ForecastRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
 
     id: uuid.UUID
     dataset_id: uuid.UUID
