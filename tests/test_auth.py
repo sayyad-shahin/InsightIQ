@@ -150,3 +150,27 @@ def test_refresh_via_cookie(client):
     r = client.post("/api/v1/auth/refresh", headers={"X-CSRF-Token": csrf})
     assert r.status_code == 200
     assert "access_token" in r.json()
+
+
+def test_auth_cookie_attributes_match_settings(client):
+    from app.core.config import settings
+
+    client.post("/api/v1/auth/signup", json={"email": "ck@example.com", "full_name": "K", "password": "SuperSecret123"})
+    login = client.post("/api/v1/auth/login", json={"email": "ck@example.com", "password": "SuperSecret123"})
+    assert login.status_code == 200
+
+    set_cookies = login.headers.get_list("set-cookie")
+    by_name = {c.split("=", 1)[0]: c for c in set_cookies}
+    assert {"iq_access", "iq_refresh", "iq_csrf"} <= set(by_name)
+
+    samesite = settings.COOKIE_SAMESITE.lower()
+    path = settings.COOKIE_PATH
+    for name in ("iq_access", "iq_refresh"):
+        header = by_name[name].lower()
+        # Session tokens are httpOnly and carry the configured SameSite/Path.
+        assert "httponly" in header
+        assert f"samesite={samesite}" in header
+        assert f"path={path.lower()}" in header
+
+    # The CSRF token must be readable by JS (double-submit), so never httpOnly.
+    assert "httponly" not in by_name["iq_csrf"].lower()
