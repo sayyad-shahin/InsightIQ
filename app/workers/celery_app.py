@@ -1,6 +1,10 @@
 from celery import Celery
 from celery.signals import worker_process_init
 
+# Import the model aggregator so EVERY ORM class (User, Dataset, …) is registered
+# in the SQLAlchemy mapper registry inside worker processes. Without this a task
+# that touches Dataset fails to configure its relationship("User") mapper.
+import app.db.base  # noqa: F401
 from app.core.config import settings
 
 
