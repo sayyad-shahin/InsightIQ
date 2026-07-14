@@ -213,3 +213,4 @@ and [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
 
 Common issues and fixes are in [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
 (broker errors, migration/enum notes, CORS, AI-not-configured, upload limits).
+"# InsightIQ" 
