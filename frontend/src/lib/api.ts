@@ -33,7 +33,11 @@ function page(limit?: number, offset?: number): string {
   return qs ? `?${qs}` : "";
 }
 
-const BASE = "/api/v1";
+// In dev, VITE_API_URL is unset so BASE is the relative "/api/v1" (Vite proxies
+// it to the backend). In production (e.g. Render) the frontend and API live on
+// different domains, so set VITE_API_URL to the backend origin at build time and
+// requests go there with credentials (cross-site cookies need SameSite=None).
+const BASE = `${import.meta.env.VITE_API_URL ?? ""}/api/v1`;
 
 /** Read the JS-readable CSRF cookie for the double-submit header on writes. */
 export function csrfHeaders(method: string): Record<string, string> {

@@ -1,5 +1,10 @@
 /// <reference types="vite/client" />
 
+interface ImportMetaEnv {
+  // Backend origin for production (cross-domain) builds; unset in dev (relative /api).
+  readonly VITE_API_URL?: string;
+}
+
 // Custom Plotly core bundle (see src/lib/plotly.ts). The submodules ship no
 // bundled types, so we declare the minimal surface the app uses.
 declare module "plotly.js/lib/core" {
