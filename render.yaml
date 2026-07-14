@@ -81,8 +81,9 @@ services:
       # Frontend & API are on different *.onrender.com domains -> cross-site cookies.
       - key: COOKIE_SAMESITE
         value: none
+      # JSON-array form is parsed correctly by pydantic-settings regardless.
       - key: CORS_ORIGINS
-        value: https://insightiq-frontend.onrender.com
+        value: '["https://insightiq-frontend.onrender.com"]'
       - key: FRONTEND_URL
         value: https://insightiq-frontend.onrender.com
       # Optional AI chat (leave blank to run without it):

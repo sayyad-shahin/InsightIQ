@@ -1,8 +1,9 @@
+import json
 from functools import lru_cache
-from typing import List
+from typing import Annotated, List
 
 from pydantic import field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 INSECURE_SECRET_PLACEHOLDER = "changeme-generate-a-real-64-byte-secret"
 
@@ -42,7 +43,10 @@ class Settings(BaseSettings):
     CELERY_TASK_ALWAYS_EAGER: bool = False
 
     # --- CORS ---
-    CORS_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000"]
+    # NoDecode: don't let pydantic-settings JSON-decode the env value in its source
+    # layer (which crashes on a plain/comma-separated string before our validator
+    # runs). The validator below accepts JSON array OR comma-separated.
+    CORS_ORIGINS: Annotated[List[str], NoDecode] = ["http://localhost:5173", "http://localhost:3000"]
 
     # --- File storage ---
     UPLOAD_DIR: str = "./storage/uploads"
@@ -124,7 +128,7 @@ class Settings(BaseSettings):
             if not raw:
                 return []
             if raw.startswith("["):
-                return raw  # let pydantic parse the JSON list
+                return json.loads(raw)  # JSON array -> list
             return [origin.strip() for origin in raw.split(",") if origin.strip()]
         return value
 
