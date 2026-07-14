@@ -68,10 +68,13 @@ export function specToTraces(spec: ChartSpec): Record<string, unknown>[] {
 }
 
 export function specToLayout(spec: ChartSpec): Record<string, unknown> {
+  // Only include an axis key when there is a title to set. Emitting
+  // `xaxis: undefined` puts an undefined-valued axis key into the layout, which
+  // crashes Plotly's cleanLayout (`undefined.anchor`).
   return {
     showlegend: (spec.series?.length ?? 0) > 1 || spec.type === "pie",
-    xaxis: spec.x_title ? { title: { text: spec.x_title } } : undefined,
-    yaxis: spec.y_title ? { title: { text: spec.y_title } } : undefined,
+    ...(spec.x_title ? { xaxis: { title: { text: spec.x_title } } } : {}),
+    ...(spec.y_title ? { yaxis: { title: { text: spec.y_title } } } : {}),
     margin: { l: 52, r: 20, t: 10, b: 44 },
   };
 }

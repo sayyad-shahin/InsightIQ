@@ -10,9 +10,17 @@
       content="InsightIQ — AI decision intelligence. Upload data, forecast trends, and chat with your datasets."
     />
     <title>InsightIQ · AI Decision Intelligence</title>
+    <!-- Some CommonJS deps (plotly.js -> has-hover) reference Node's `global`,
+         which does not exist in the browser. Define it before any module loads. -->
+    <script>
+      window.global = window;
+    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
+
+
+

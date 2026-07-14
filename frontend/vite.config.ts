@@ -17,6 +17,16 @@ export default defineConfig({
       },
     },
   },
+  // `vite preview` (production bundle) uses a separate proxy config; mirror the
+  // dev proxy so a prod-preview build can also reach the local backend.
+  preview: {
+    proxy: {
+      "/api": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+      },
+    },
+  },
   build: {
     target: "es2020",
     // Plotly is inherently large but is route-split and lazy-loaded (charts only),
