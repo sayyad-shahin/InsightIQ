@@ -1,3 +1,8 @@
+# ============================================================================
+# OPTIONAL deployment artifact. Native Windows execution (NATIVE-SETUP.md +
+# scripts/*.ps1) is the default and does NOT use this file. Kept only for
+# building an image on a Docker-capable host.
+# ============================================================================
 FROM python:3.11-slim AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \

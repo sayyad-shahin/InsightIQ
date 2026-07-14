@@ -1,3 +1,9 @@
+# ============================================================================
+# OPTIONAL deployment artifact. This project runs natively on Windows without
+# Docker/WSL — see NATIVE-SETUP.md and scripts/*.ps1 (that is the default path).
+# This compose file is kept only for deploying to a Docker-capable host (e.g. a
+# Linux server/CI). It is NOT required to run the application.
+# ============================================================================
 services:
   postgres:
     image: postgres:16-alpine
