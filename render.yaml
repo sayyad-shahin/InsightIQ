@@ -37,7 +37,9 @@ services:
     rootDir: .
     buildCommand: "pip install -r requirements.txt"
     # Apply DB migrations, then serve. gunicorn+uvicorn workers on $PORT.
-    startCommand: "alembic upgrade head && gunicorn app.main:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 120"
+    # 1 worker keeps memory under the free tier's 512 MB (pandas/sklearn/scipy are
+    # heavy). Bump this on a paid plan with more RAM.
+    startCommand: "alembic upgrade head && gunicorn app.main:app --workers 1 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 120"
     healthCheckPath: /api/health
     envVars:
       - key: PYTHON_VERSION
