@@ -1,9 +1,9 @@
 import json
 from functools import lru_cache
-from typing import Annotated, List
+from typing import List
 
 from pydantic import field_validator, model_validator
-from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 INSECURE_SECRET_PLACEHOLDER = "changeme-generate-a-real-64-byte-secret"
 
@@ -43,10 +43,10 @@ class Settings(BaseSettings):
     CELERY_TASK_ALWAYS_EAGER: bool = False
 
     # --- CORS ---
-    # NoDecode: don't let pydantic-settings JSON-decode the env value in its source
-    # layer (which crashes on a plain/comma-separated string before our validator
-    # runs). The validator below accepts JSON array OR comma-separated.
-    CORS_ORIGINS: Annotated[List[str], NoDecode] = ["http://localhost:5173", "http://localhost:3000"]
+    # Stored as a raw string so pydantic-settings never tries to JSON-decode it in
+    # its env source (which fails on a plain/CSV value, and would otherwise need a
+    # newer-only pydantic-settings feature). Parsed by the `cors_origins` property.
+    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
 
     # --- File storage ---
     UPLOAD_DIR: str = "./storage/uploads"
@@ -119,18 +119,18 @@ class Settings(BaseSettings):
     def cookie_secure(self) -> bool:
         return self.is_production if self.COOKIE_SECURE is None else self.COOKIE_SECURE
 
-    @field_validator("CORS_ORIGINS", mode="before")
-    @classmethod
-    def _parse_cors_origins(cls, value: object) -> object:
-        """Accept CORS origins as a JSON array or a comma-separated string."""
-        if isinstance(value, str):
-            raw = value.strip()
-            if not raw:
-                return []
-            if raw.startswith("["):
-                return json.loads(raw)  # JSON array -> list
-            return [origin.strip() for origin in raw.split(",") if origin.strip()]
-        return value
+    @property
+    def cors_origins(self) -> List[str]:
+        """CORS_ORIGINS parsed into a list of origins. Accepts a JSON array, a
+        single URL, or a comma-separated string. Parsing lives here (not a field
+        validator) so the env field stays a plain `str` and pydantic-settings never
+        JSON-decodes it in its source layer — works on any pydantic-settings 2.x."""
+        raw = (self.CORS_ORIGINS or "").strip()
+        if not raw:
+            return []
+        if raw.startswith("["):
+            return json.loads(raw)  # JSON array -> list
+        return [origin.strip() for origin in raw.split(",") if origin.strip()]
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod

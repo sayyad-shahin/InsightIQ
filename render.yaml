@@ -84,9 +84,9 @@ services:
       - key: COOKIE_SAMESITE
         value: none
       # Must be the ACTUAL frontend URL Render assigned (it appended -i4vy).
-      # JSON-array form is parsed correctly by pydantic-settings regardless.
+      # Plain URL, single value, or comma-separated all work (see cors_origins).
       - key: CORS_ORIGINS
-        value: '["https://insightiq-frontend-i4vy.onrender.com"]'
+        value: https://insightiq-frontend-i4vy.onrender.com
       - key: FRONTEND_URL
         value: https://insightiq-frontend-i4vy.onrender.com
       # Optional AI chat (leave blank to run without it):
