@@ -2,7 +2,7 @@ import json
 from functools import lru_cache
 from typing import List
 
-from pydantic import field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 INSECURE_SECRET_PLACEHOLDER = "changeme-generate-a-real-64-byte-secret"
@@ -16,7 +16,9 @@ class Settings(BaseSettings):
     See .env.example in the backend/ root for the full list of required keys.
     """
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore", populate_by_name=True
+    )
 
     # --- Application ---
     APP_NAME: str = "InsightIQ"
@@ -43,10 +45,13 @@ class Settings(BaseSettings):
     CELERY_TASK_ALWAYS_EAGER: bool = False
 
     # --- CORS ---
-    # Stored as a raw string so pydantic-settings never tries to JSON-decode it in
-    # its env source (which fails on a plain/CSV value, and would otherwise need a
-    # newer-only pydantic-settings feature). Parsed by the `cors_origins` property.
-    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
+    # Read the CORS_ORIGINS env var as a plain string (via alias) so pydantic-settings
+    # never JSON-decodes it in its env source. That decode fails on a single-URL or
+    # comma-separated value, and older pydantic-settings versions offer no way to opt
+    # out of it. The CORS_ORIGINS property below returns the parsed list.
+    cors_origins_raw: str = Field(
+        default="http://localhost:5173,http://localhost:3000", alias="CORS_ORIGINS"
+    )
 
     # --- File storage ---
     UPLOAD_DIR: str = "./storage/uploads"
@@ -120,12 +125,13 @@ class Settings(BaseSettings):
         return self.is_production if self.COOKIE_SECURE is None else self.COOKIE_SECURE
 
     @property
-    def cors_origins(self) -> List[str]:
-        """CORS_ORIGINS parsed into a list of origins. Accepts a JSON array, a
-        single URL, or a comma-separated string. Parsing lives here (not a field
-        validator) so the env field stays a plain `str` and pydantic-settings never
-        JSON-decodes it in its source layer — works on any pydantic-settings 2.x."""
-        raw = (self.CORS_ORIGINS or "").strip()
+    def CORS_ORIGINS(self) -> List[str]:
+        """CORS origins parsed into a list. Accepts a JSON array (["https://x"]),
+        a single URL (https://x), or a comma-separated string (https://a,https://b).
+        Reads the raw `cors_origins_raw` field so the env value stays a plain `str`
+        and pydantic-settings never JSON-decodes it — works on any pydantic-settings
+        2.x version."""
+        raw = (self.cors_origins_raw or "").strip()
         if not raw:
             return []
         if raw.startswith("["):
