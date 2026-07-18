@@ -52,6 +52,10 @@ class Settings(BaseSettings):
     cors_origins_raw: str = Field(
         default="http://localhost:5173,http://localhost:3000", alias="CORS_ORIGINS"
     )
+    # Also allow any Render-hosted frontend of this app by regex, so a new frontend
+    # URL suffix (Render assigns e.g. -i4vy, -ekwi) never needs a manual CORS update.
+    # An origin is allowed if it is in CORS_ORIGINS OR matches this pattern.
+    CORS_ORIGIN_REGEX: str = r"https://insightiq-frontend[a-z0-9-]*\.onrender\.com"
 
     # --- File storage ---
     UPLOAD_DIR: str = "./storage/uploads"
