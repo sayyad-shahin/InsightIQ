@@ -37,3 +37,18 @@ def test_preflight_blocks_unknown_origin(client):
     """An origin that is neither in the list nor matches the regex gets no header."""
     r = _preflight(client, "/api/v1/auth/signup", "https://evil.example.com")
     assert r.headers.get("access-control-allow-origin") is None
+
+
+def test_error_response_still_carries_cors_header(client):
+    """Regression: CORS must be the OUTERMOST middleware so a request short-circuited
+    by the CSRF/auth middleware (a 403) still gets Access-Control-Allow-Origin. If CORS
+    sat inside the CSRF middleware, that 403 would reach the browser without CORS
+    headers and surface as a misleading 'CORS blocked' error."""
+    origin = "https://insightiq-frontend-i4vy.onrender.com"
+    # A stale auth cookie with no CSRF header triggers the CSRF middleware's 403.
+    r = client.post(
+        "/api/v1/datasets/upload",
+        headers={"Origin": origin, "Cookie": "iq_access=stale"},
+    )
+    assert r.status_code in (401, 403)
+    assert r.headers.get("access-control-allow-origin") == origin

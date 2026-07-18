@@ -46,22 +46,34 @@ const BASE = `${import.meta.env.VITE_API_URL ?? ""}/api/v1`;
 // an Authorization header, persisted client-side. The backend accepts a bearer token
 // and skips CSRF for header-authenticated requests.
 const TOKEN_KEY = "iq_access_token";
+const REFRESH_KEY = "iq_refresh_token";
 
-let authToken: string | null = (() => {
+function readStored(key: string): string | null {
   try {
-    return typeof localStorage !== "undefined" ? localStorage.getItem(TOKEN_KEY) : null;
+    return typeof localStorage !== "undefined" ? localStorage.getItem(key) : null;
   } catch {
     return null;
   }
-})();
+}
+let authToken: string | null = readStored(TOKEN_KEY);
+let refreshTokenValue: string | null = readStored(REFRESH_KEY);
 
-export function setAuthToken(token: string | null): void {
-  authToken = token;
+function persist(key: string, value: string | null): void {
   try {
-    if (token) localStorage.setItem(TOKEN_KEY, token);
-    else localStorage.removeItem(TOKEN_KEY);
+    if (value) localStorage.setItem(key, value);
+    else localStorage.removeItem(key);
   } catch {
-    /* storage unavailable (e.g. private mode) — keep token in memory only */
+    /* storage unavailable (e.g. private mode) — keep in memory only */
+  }
+}
+
+/** Store the access (and optionally refresh) token. Pass (null, null) to clear. */
+export function setAuthToken(access: string | null, refresh?: string | null): void {
+  authToken = access;
+  persist(TOKEN_KEY, access);
+  if (refresh !== undefined) {
+    refreshTokenValue = refresh;
+    persist(REFRESH_KEY, refresh);
   }
 }
 
@@ -106,20 +118,26 @@ function extractMessage(body: unknown, fallback: string): string {
 
 let refreshPromise: Promise<boolean> | null = null;
 
-/** Silently rotate the session using the httpOnly refresh cookie. */
+/** Silently rotate the session using the stored refresh token (bearer, no cookies). */
 async function tryRefresh(): Promise<boolean> {
+  if (!refreshTokenValue) return false;
   if (!refreshPromise) {
     refreshPromise = (async () => {
       try {
         const res = await fetch(`${BASE}/auth/refresh`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", ...authHeaders(), ...csrfHeaders("POST") },
-          credentials: "include",
-          body: "{}",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh_token: refreshTokenValue }),
         });
-        if (!res.ok) return false;
-        const data = (await res.json().catch(() => null)) as { access_token?: string } | null;
-        if (data?.access_token) setAuthToken(data.access_token);
+        if (!res.ok) {
+          setAuthToken(null, null); // refresh token invalid/expired — force re-login
+          return false;
+        }
+        const data = (await res.json().catch(() => null)) as {
+          access_token?: string;
+          refresh_token?: string;
+        } | null;
+        if (data?.access_token) setAuthToken(data.access_token, data.refresh_token ?? refreshTokenValue);
         return true;
       } catch {
         return false;
@@ -145,10 +163,12 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   const doFetch = async (): Promise<Response> => {
     const headers: Record<string, string> = { ...authHeaders(), ...csrfHeaders(method) };
     if (!isForm && body !== undefined) headers["Content-Type"] = "application/json";
+    // No `credentials: "include"`: we authenticate purely with the bearer token, so
+    // no cookies are sent cross-origin. This avoids a stale third-party auth cookie
+    // (with no readable CSRF cookie) tripping the backend's CSRF check -> 403.
     return fetch(`${BASE}${path}`, {
       method,
       headers,
-      credentials: "include", // send/receive httpOnly auth cookies
       signal,
       body: isForm ? (body as FormData) : body !== undefined ? JSON.stringify(body) : undefined,
     });
@@ -187,14 +207,14 @@ export const api = {
       request<User>("/auth/signup", { method: "POST", body: data, auth: false }),
     login: async (data: { email: string; password: string }) => {
       const res = await request<TokenResponse>("/auth/login", { method: "POST", body: data, auth: false });
-      setAuthToken(res.access_token); // store JWT for cross-domain bearer auth
+      setAuthToken(res.access_token, res.refresh_token); // bearer auth, no cookies
       return res;
     },
     logout: async () => {
       try {
         await request<void>("/auth/logout", { method: "POST" });
       } finally {
-        setAuthToken(null);
+        setAuthToken(null, null);
       }
     },
     forgotPassword: (email: string) =>

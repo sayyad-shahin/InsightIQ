@@ -45,15 +45,6 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_origin_regex=settings.CORS_ORIGIN_REGEX or None,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
@@ -117,6 +108,21 @@ async def add_request_context(request: Request, call_next):
     response.headers["X-Process-Time-Ms"] = f"{duration_ms:.1f}"
     response.headers["X-Request-ID"] = request_id
     return response
+
+
+# CORS is added LAST so it is the OUTERMOST middleware: every response — including
+# error responses short-circuited by the CSRF/auth middleware above (e.g. a 403) —
+# passes back through it and receives Access-Control-Allow-Origin. Added earlier it
+# would sit inside csrf_protect, and CSRF 403s would reach the browser without CORS
+# headers, surfacing as a misleading "CORS blocked" error.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_origin_regex=settings.CORS_ORIGIN_REGEX or None,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.exception_handler(RateLimitExceeded)
