@@ -83,12 +83,12 @@ services:
       # Frontend & API are on different *.onrender.com domains -> cross-site cookies.
       - key: COOKIE_SAMESITE
         value: none
-      # Must be the ACTUAL frontend URL Render assigned (it appended -i4vy).
-      # Plain URL, single value, or comma-separated all work (see cors_origins).
+      # Must be the ACTUAL frontend URL(s) Render assigned (it appends a suffix).
+      # Comma-separated list allows every live frontend origin (see cors_origins).
       - key: CORS_ORIGINS
-        value: https://insightiq-frontend-i4vy.onrender.com
+        value: https://insightiq-frontend-ekwi.onrender.com,https://insightiq-frontend-i4vy.onrender.com
       - key: FRONTEND_URL
-        value: https://insightiq-frontend-i4vy.onrender.com
+        value: https://insightiq-frontend-ekwi.onrender.com
       # Optional AI chat (leave blank to run without it):
       - key: GOOGLE_API_KEY
         sync: false
@@ -101,9 +101,10 @@ services:
     buildCommand: "npm ci && npm run build"
     staticPublishPath: dist
     envVars:
-      # Absolute backend origin, baked into the build (see src/lib/api.ts).
+      # Absolute backend origin Render assigned (it appended -e9l5), baked into the
+      # build (see src/lib/api.ts). MUST match the real API URL or every call 404s.
       - key: VITE_API_URL
-        value: https://insightiq-api.onrender.com
+        value: https://insightiq-api-e9l5.onrender.com
     routes:
       # SPA fallback: serve index.html for client-side routes.
       - type: rewrite
