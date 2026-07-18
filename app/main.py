@@ -25,6 +25,8 @@ init_sentry()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info(f"{settings.APP_NAME} starting up in {settings.APP_ENV} mode")
+    # Log the effective CORS config so Render's logs confirm what was loaded.
+    logger.info(f"CORS allow_origins={settings.CORS_ORIGINS} allow_origin_regex={settings.CORS_ORIGIN_REGEX!r}")
     yield
     logger.info(f"{settings.APP_NAME} shutting down")
 
