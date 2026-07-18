@@ -39,16 +39,46 @@ function page(limit?: number, offset?: number): string {
 // requests go there with credentials (cross-site cookies need SameSite=None).
 const BASE = `${import.meta.env.VITE_API_URL ?? ""}/api/v1`;
 
-/** Read the JS-readable CSRF cookie for the double-submit header on writes. */
+// --- Bearer-token auth ---------------------------------------------------------
+// In production the frontend and API are on different domains, so the double-submit
+// CSRF cookie (set on the API's domain) isn't readable by JS here, and browsers may
+// drop third-party cookies. We therefore authenticate with the JWT access token in
+// an Authorization header, persisted client-side. The backend accepts a bearer token
+// and skips CSRF for header-authenticated requests.
+const TOKEN_KEY = "iq_access_token";
+
+let authToken: string | null = (() => {
+  try {
+    return typeof localStorage !== "undefined" ? localStorage.getItem(TOKEN_KEY) : null;
+  } catch {
+    return null;
+  }
+})();
+
+export function setAuthToken(token: string | null): void {
+  authToken = token;
+  try {
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+    else localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    /* storage unavailable (e.g. private mode) — keep token in memory only */
+  }
+}
+
+/** True when a bearer token is stored (i.e. the user is logged in). */
+export function hasSession(): boolean {
+  return !!authToken;
+}
+
+function authHeaders(): Record<string, string> {
+  return authToken ? { Authorization: `Bearer ${authToken}` } : {};
+}
+
+/** CSRF double-submit header — only effective same-origin; harmless cross-origin. */
 export function csrfHeaders(method: string): Record<string, string> {
   if (method === "GET" || method === "HEAD") return {};
   const match = document.cookie.match(/(?:^|;\s*)iq_csrf=([^;]+)/);
   return match ? { "X-CSRF-Token": decodeURIComponent(match[1]) } : {};
-}
-
-/** A logged-in session leaves a readable iq_csrf cookie (access/refresh are httpOnly). */
-function hasSessionCookie(): boolean {
-  return /(?:^|;\s*)iq_csrf=/.test(document.cookie);
 }
 
 export class ApiError extends Error {
@@ -83,11 +113,14 @@ async function tryRefresh(): Promise<boolean> {
       try {
         const res = await fetch(`${BASE}/auth/refresh`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", ...csrfHeaders("POST") },
+          headers: { "Content-Type": "application/json", ...authHeaders(), ...csrfHeaders("POST") },
           credentials: "include",
           body: "{}",
         });
-        return res.ok;
+        if (!res.ok) return false;
+        const data = (await res.json().catch(() => null)) as { access_token?: string } | null;
+        if (data?.access_token) setAuthToken(data.access_token);
+        return true;
       } catch {
         return false;
       } finally {
@@ -110,7 +143,7 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   const { method = "GET", body, isForm = false, signal } = opts;
 
   const doFetch = async (): Promise<Response> => {
-    const headers: Record<string, string> = { ...csrfHeaders(method) };
+    const headers: Record<string, string> = { ...authHeaders(), ...csrfHeaders(method) };
     if (!isForm && body !== undefined) headers["Content-Type"] = "application/json";
     return fetch(`${BASE}${path}`, {
       method,
@@ -125,7 +158,7 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
 
   // On 401, try one silent cookie refresh + retry — only if a session exists and
   // this isn't itself an auth endpoint.
-  if (res.status === 401 && !path.startsWith("/auth/") && hasSessionCookie()) {
+  if (res.status === 401 && !path.startsWith("/auth/") && hasSession()) {
     const ok = await tryRefresh();
     if (ok) res = await doFetch();
   }
@@ -152,9 +185,18 @@ export const api = {
   auth: {
     signup: (data: { email: string; full_name: string; password: string }) =>
       request<User>("/auth/signup", { method: "POST", body: data, auth: false }),
-    login: (data: { email: string; password: string }) =>
-      request<TokenResponse>("/auth/login", { method: "POST", body: data, auth: false }),
-    logout: () => request<void>("/auth/logout", { method: "POST" }),
+    login: async (data: { email: string; password: string }) => {
+      const res = await request<TokenResponse>("/auth/login", { method: "POST", body: data, auth: false });
+      setAuthToken(res.access_token); // store JWT for cross-domain bearer auth
+      return res;
+    },
+    logout: async () => {
+      try {
+        await request<void>("/auth/logout", { method: "POST" });
+      } finally {
+        setAuthToken(null);
+      }
+    },
     forgotPassword: (email: string) =>
       request<{ message: string }>("/auth/forgot-password", { method: "POST", body: { email }, auth: false }),
     resetPassword: (token: string, new_password: string) =>

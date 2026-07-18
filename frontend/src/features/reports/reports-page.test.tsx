@@ -4,6 +4,8 @@ import { renderWithProviders } from "@/test/test-utils";
 import type { Report } from "@/types/api";
 
 vi.mock("@/lib/api", () => ({
+  hasSession: () => true,
+  setAuthToken: () => {},
   ApiError: class extends Error {},
   api: {
     users: { me: vi.fn().mockResolvedValue({ id: "u1", full_name: "Ada", role: "analyst" }) },

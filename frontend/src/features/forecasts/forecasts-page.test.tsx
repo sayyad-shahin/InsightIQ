@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { makeDataset, renderWithProviders } from "@/test/test-utils";
 
 vi.mock("@/lib/api", () => ({
+  hasSession: () => true,
+  setAuthToken: () => {},
   ApiError: class extends Error {},
   tokenStore: { access: null, refresh: null, set: vi.fn(), clear: vi.fn() },
   api: {

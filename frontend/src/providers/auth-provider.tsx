@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { api } from "@/lib/api";
+import { api, hasSession } from "@/lib/api";
 import type { User } from "@/types/api";
 
 interface AuthContextValue {
@@ -13,11 +13,6 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-/** A logged-in session leaves a readable iq_csrf cookie (access/refresh are httpOnly). */
-function hasSessionCookie(): boolean {
-  return typeof document !== "undefined" && /(?:^|;\s*)iq_csrf=/.test(document.cookie);
-}
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -25,7 +20,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Auth lives in httpOnly cookies. Only probe the session when a session cookie
   // exists, so public pages don't fire needless 401s.
   const refreshUser = useCallback(async () => {
-    if (!hasSessionCookie()) {
+    if (!hasSession()) {
       setUser(null);
       return;
     }

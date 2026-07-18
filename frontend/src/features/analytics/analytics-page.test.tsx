@@ -4,6 +4,8 @@ import { makeDataset, renderWithProviders } from "@/test/test-utils";
 import type { DatasetAnalytics } from "@/types/api";
 
 vi.mock("@/lib/api", () => ({
+  hasSession: () => true,
+  setAuthToken: () => {},
   ApiError: class extends Error {},
   tokenStore: { access: null, refresh: null, set: vi.fn(), clear: vi.fn() },
   api: {

@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "@/test/test-utils";
 
 vi.mock("@/lib/api", () => ({
+  hasSession: () => true,
+  setAuthToken: () => {},
   ApiError: class extends Error {},
   api: {
     users: {
