@@ -335,9 +335,9 @@ function createCancellableUpload(file: File, onProgress?: (pct: number) => void)
     const form = new FormData();
     form.append("file", file);
     xhr.open("POST", `${BASE}/datasets/upload`);
-    xhr.withCredentials = true;
-    const csrf = csrfHeaders("POST")["X-CSRF-Token"];
-    if (csrf) xhr.setRequestHeader("X-CSRF-Token", csrf);
+    // Bearer auth only — no cookies (avoids the cross-domain CSRF 403).
+    const auth = authHeaders();
+    if (auth.Authorization) xhr.setRequestHeader("Authorization", auth.Authorization);
 
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
@@ -374,8 +374,7 @@ async function streamChatMessage(
 ): Promise<void> {
   const res = await fetch(`${BASE}/chats/${chatId}/messages/stream`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...csrfHeaders("POST") },
-    credentials: "include",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ content }),
     signal,
   });
@@ -411,7 +410,7 @@ async function streamChatMessage(
 
 /** Authenticated file download via blob (a plain link can't send the bearer token). */
 async function downloadBlob(path: string, filename: string): Promise<void> {
-  const res = await fetch(`${BASE}${path}`, { credentials: "include" });
+  const res = await fetch(`${BASE}${path}`, { headers: authHeaders() });
   if (!res.ok) throw new ApiError(res.status, "Download failed");
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
