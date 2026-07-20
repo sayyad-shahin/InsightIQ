@@ -60,16 +60,17 @@ export default function AnalyticsPage() {
             description="Upload and process a dataset to explore analytics."
           />
         </div>
-      ) : isLoading || !data ? (
-        <AnalyticsSkeleton />
       ) : isError ? (
         <div className="card-surface">
           <EmptyState
             icon={BarChart3}
             title="Couldn't load analytics"
+            description="This dataset's data may no longer be available — try re-uploading it."
             action={<Button onClick={() => refetch()}>Retry</Button>}
           />
         </div>
+      ) : isLoading || !data ? (
+        <AnalyticsSkeleton />
       ) : (
         <div className={isFetching ? "space-y-8 opacity-70 transition-opacity" : "space-y-8"}>
           <Kpis data={data} />
