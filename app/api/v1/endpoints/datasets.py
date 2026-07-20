@@ -34,6 +34,7 @@ from app.services.dataset_service import (
     clean_dataframe,
     compute_statistics,
     delete_parsed_artifacts,
+    df_to_parquet_bytes,
     get_owned_dataset,
     is_cleaned_path,
     load_analysis_dataframe,
@@ -332,6 +333,7 @@ def apply_cleaning(
 
     dataset.storage_path = cleaned_path
     dataset.source_type = SourceType.CSV
+    dataset.parsed_artifact = df_to_parquet_bytes(cleaned)  # durable copy (ephemeral disks)
     _reprofile(dataset, cleaned)
     db.add(dataset)
     db.flush()

@@ -1,3 +1,4 @@
+import io
 import re
 import sqlite3
 import uuid
@@ -96,6 +97,32 @@ def _load_dataframe_from_pdf(path: Path) -> pd.DataFrame:
 
 # --- Parsed dataframe artifact (avoid repeated CSV/Excel/PDF parsing) --------
 
+# Cap the parsed copy persisted in the DB so Postgres stays lean; larger datasets
+# fall back to disk only. Typical CSV/Excel demos are far under this.
+_MAX_DB_ARTIFACT_BYTES = 25 * 1024 * 1024  # 25 MiB
+
+
+def df_to_parquet_bytes(df: pd.DataFrame) -> bytes | None:
+    """Serialize a DataFrame to parquet bytes for durable DB storage.
+
+    Returns None on failure or if it exceeds the size cap (never fails the caller).
+    """
+    try:
+        buf = io.BytesIO()
+        df.to_parquet(buf, index=False)
+        data = buf.getvalue()
+        return data if len(data) <= _MAX_DB_ARTIFACT_BYTES else None
+    except Exception:  # noqa: BLE001 - pyarrow unavailable / oversize; best effort
+        return None
+
+
+def _parquet_bytes_to_df(data: bytes) -> pd.DataFrame | None:
+    try:
+        return pd.read_parquet(io.BytesIO(data))
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def _artifact_paths(storage_path: str) -> tuple[Path, Path]:
     return Path(f"{storage_path}.parquet"), Path(f"{storage_path}.pkl")
 
@@ -138,11 +165,21 @@ def delete_parsed_artifacts(storage_path: str) -> None:
 def load_analysis_dataframe(dataset: Dataset) -> pd.DataFrame:
     """
     Load a dataset for analysis, reusing a parsed artifact when present so large
-    files aren't re-parsed on every analytics/statistics/chat request.
+    files aren't re-parsed on every analytics/statistics/chat request. Load order:
+      1. on-disk parquet/pickle cache (fast, local),
+      2. the durable parquet copy stored on the dataset row — survives hosts with
+         ephemeral disks (e.g. Render) where the file + on-disk cache are wiped,
+      3. re-parse the original uploaded file (may be gone on ephemeral disks).
     """
     cached = read_parsed_artifact(dataset.storage_path)
     if cached is not None:
         return cached
+    blob = getattr(dataset, "parsed_artifact", None)
+    if blob:
+        df = _parquet_bytes_to_df(blob)
+        if df is not None:
+            write_parsed_artifact(df, dataset.storage_path)  # re-warm the disk cache
+            return df
     df = load_dataframe(Path(dataset.storage_path), dataset.source_type)
     write_parsed_artifact(df, dataset.storage_path)
     return df

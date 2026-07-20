@@ -10,6 +10,7 @@ from app.services.dataset_service import (
     UnsupportedDatasetError,
     build_quality_report,
     build_schema_snapshot,
+    df_to_parquet_bytes,
     load_dataframe,
     write_parsed_artifact,
 )
@@ -47,12 +48,14 @@ def process_dataset(self, dataset_id: str) -> None:
             dataset.column_count = len(df.columns)
             dataset.schema_snapshot = build_schema_snapshot(df)
             dataset.quality_report = build_quality_report(df)
+            # Durable parsed copy in the DB so analysis survives ephemeral-disk restarts.
+            dataset.parsed_artifact = df_to_parquet_bytes(df)
             dataset.status = DatasetStatus.CLEANED
             dataset.error_message = None
             db.add(dataset)
             db.commit()
 
-            # Persist a parsed artifact so analytics/chat don't re-parse the file.
+            # Also cache a parsed artifact on disk so analytics/chat don't re-parse.
             write_parsed_artifact(df, dataset.storage_path)
             logger.info(f"Dataset {dataset_id} processed: {dataset.row_count} rows")
 

@@ -2,7 +2,7 @@ import enum
 import uuid
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy import ForeignKey, Integer, LargeBinary, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import GUID, JSONVariant, Base, TimestampMixin, UUIDMixin, pg_enum
@@ -45,6 +45,10 @@ class Dataset(UUIDMixin, TimestampMixin, Base):
     schema_snapshot: Mapped[Optional[dict]] = mapped_column(JSONVariant, nullable=True)
     quality_report: Mapped[Optional[dict]] = mapped_column(JSONVariant, nullable=True)
     error_message: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
+    # Durable parsed copy (parquet bytes) so analysis survives hosts with EPHEMERAL
+    # disks (e.g. Render free tier) where the uploaded file + on-disk artifacts are
+    # wiped on every restart/redeploy. Loaded as a fallback when the disk file is gone.
+    parsed_artifact: Mapped[Optional[bytes]] = mapped_column(LargeBinary, nullable=True)
 
     owner: Mapped["User"] = relationship(back_populates="datasets")
     chats: Mapped[list["Chat"]] = relationship(back_populates="dataset")
